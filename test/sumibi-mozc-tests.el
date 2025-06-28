@@ -89,18 +89,18 @@
       (should (string= result "変換")))))
 
 (ert-deftest sumibi-mozc-nihongo ()
-  "Converting 'nihongo' should yield '日本語'."
+  "Converting 'nihongo' should yield 'ニホンゴ'."
   (if (not sumibi--mozc-available-p)
       (ert-skip "Mozc not available on this environment")
     (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongo" "" 1 nil))))
-      (should (string= result "日本語")))))
+      (should (string= result "ニホンゴ")))))
 
 (ert-deftest sumibi-mozc-nihongoga-dekimasu ()
-  "Converting multi-word input 'nihongoga dekimasu' should yield '日本語が出来ます'."
+  "Converting multi-word input 'nihongoga dekimasu' should yield 'ニホンゴが出来ます'."
   (if (not sumibi--mozc-available-p)
       (ert-skip "Mozc not available on this environment")
     (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongoga dekimasu" "" 1 nil))))
-      (should (string= result "日本語が出来ます")))))
+      (should (string= result "ニホンゴが出来ます")))))
 
 ;; ------------------------------------------------------------------
 ;; End-to-end helper & tests on *scratch* buffer
