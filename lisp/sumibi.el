@@ -119,6 +119,86 @@ ROMAN itself is returned so that callers can safely fall back."
   :type  'string
   :group 'sumibi)
 
+;; ------------------------------------------------------------------
+;; Teach Mozc the actually committed candidate (optional)
+;; ------------------------------------------------------------------
+(defcustom sumibi-mozc-learn-at-kakutei t
+  "If non-nil, Sumibi asks Mozc to learn the candidate that was
+finally committed in `sumibi-select-kakutei'.
+
+This is achieved by spinning up a *separate* Mozc session at the
+moment of confirmation, performing the same conversion again, moving
+the selection to the committed candidate and sending an ENTER key so
+that Mozc's adaptive learning mechanism records the choice.
+
+The feature only works when `sumibi-backend' is `mozc'."
+  :type 'boolean
+  :group 'sumibi)
+
+;; Internal helper ----------------------------------------------------
+(defun sumibi--mozc-learn (roman committed)
+  "Let Mozc learn that ROMAN converts to COMMITTED.
+
+This function is called right after a candidate is confirmed via
+`sumibi-select-kakutei'.  A *new* Mozc session is created so that the
+learning operation is completely isolated from the session Sumibi
+uses for ordinary candidate acquisition.
+
+If COMMITTED cannot be found in Mozc's candidate list, the function
+simply commits the default candidate so that at least the roman string
+is registered in Mozc's history.  Any Mozc-related error is caught and
+silently ignored so as not to interfere with the original Sumibi
+workflow."
+  (when (and sumibi--mozc-available-p            ; Mozc is loadable
+             (sumibi-backend-mozc-p)             ; currently using Mozc backend
+             (stringp roman) (stringp committed)
+             (not (string-match-p "[ \t]" roman))) ; single segment only
+    (condition-case err
+        (progn
+	  (sumibi-debug-print (format "sumibi--mozc-learn:roman[%s]\n" roman))
+          ;; start isolated session
+          (mozc-session-create t)
+
+          ;; feed roman characters
+          (dolist (ch (string-to-list (downcase roman)))
+            (mozc-session-sendkey (list ch)))
+
+          ;; send <space> up to 3 times until Mozc returns candidates
+          (let* ((iteration 0)
+                 resp cands)
+            (while (and (< iteration 3)
+                        (progn
+                          (setq resp  (mozc-session-sendkey '(space)))
+                          (setq cands (and resp (mozc-protobuf-get resp 'candidates)))
+                          (null cands)))
+              (setq iteration (1+ iteration)))
+
+            (sumibi-debug-print (format "sumibi--mozc-learn:cands[%S]\n" cands))
+
+            (let* ((cand-list (and cands (mozc-protobuf-get cands 'candidate)))
+                   (values    (and cand-list
+                                   (mapcar (lambda (cand)
+                                             (mozc-protobuf-get cand 'value))
+                                           cand-list)))
+                   (idx       (and values
+                                   (cl-position committed values :test #'string=)))))
+
+            ;; The first space may have moved the selection to candidate 1.
+            ;; Send UP once to ensure we are at candidate 0, then navigate.
+            (when (and idx (> idx 0))
+              (mozc-session-sendkey '(up))
+              (dotimes (_ idx)
+                (mozc-session-sendkey '(down))))
+
+            ;; Commit current candidate so that Mozc learns it.
+            (mozc-session-sendkey '(enter)))
+
+          ;; terminate session if supported
+          (when (fboundp 'mozc-session-delete)
+            (mozc-session-delete)))
+      (error
+       (sumibi-debug-print (format "sumibi--mozc-learn:error %s\n" err))))))
+
 ;; --------------------------------------------------------------
 ;; Backend selection for roman→kanji conversion.
 ;;   'openai (default) : use an OpenAI-compatible ChatCompletions API
@@ -1362,13 +1442,13 @@ _ARG: (未使用)"
   "候補選択を確定する."
   (interactive)
   ;; 候補番号リストをバックアップする。
+  (sumibi-debug-print (format "sumibi-select-kakutei\n"))
   (setq sumibi-cand-cur-backup sumibi-cand-cur)
   (setq sumibi-select-mode nil)
   (run-hooks 'sumibi-select-mode-end-hook)
   (sumibi-select-operation-reset)
   (sumibi-select-update-display)
   (sumibi-history-push))
-
 
 (defun sumibi-select-cancel ()
   "候補選択をキャンセルする."
@@ -1582,6 +1662,20 @@ _ARG: (未使用)"
      (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
      (bufname            . ,(buffer-name)))
    sumibi-history-stack)
+  ;; --------------------------------------------------------------
+  ;; Mozc learning (optional)
+  ;; --------------------------------------------------------------
+  (sumibi-debug-print (format "sumibi-history-push: (sumibi-backend-mozc-p)=%s sumibi--mozc-available-p=%s sumibi-last-roman=%s sumibi-last-fix=%s\n" (sumibi-backend-mozc-p) sumibi--mozc-available-p sumibi-last-roman sumibi-last-fix))
+  (when (and sumibi-mozc-learn-at-kakutei
+             (sumibi-backend-mozc-p)
+             sumibi--mozc-available-p
+             (stringp sumibi-last-roman)
+             (> (length sumibi-last-roman) 0)
+             (stringp sumibi-last-fix)
+             (> (length sumibi-last-fix) 0))
+    (sumibi-debug-print (format "sumibi-history-push: mozc learn roman=%S fix=%S\n"
+                               sumibi-last-roman sumibi-last-fix))
+    (sumibi--mozc-learn sumibi-last-roman sumibi-last-fix))
   (sumibi-debug-print (format "sumibi-history-push result: %S\n" sumibi-history-stack)))
 
 
