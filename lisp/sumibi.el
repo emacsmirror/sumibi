@@ -181,15 +181,15 @@ workflow."
                                              (mozc-protobuf-get cand 'value))
                                            cand-list)))
                    (idx       (and values
-                                   (cl-position committed values :test #'string=)))))
+                                   (cl-position committed values :test #'string=))))
 
-            ;; The first space may have moved the selection to candidate 1.
-            ;; Send UP once to ensure we are at candidate 0, then navigate.
-            (when (and idx (> idx 0))
-              (mozc-session-sendkey '(up))
-              (dotimes (_ idx)
-                (mozc-session-sendkey '(down))))
-
+              ;; The first space may have moved the selection to candidate 1.
+              ;; Send UP once to ensure we are at candidate 0, then navigate.
+              (when (and idx (> idx 0))
+		(mozc-session-sendkey '(up))
+		(dotimes (_ idx)
+                  (mozc-session-sendkey '(down)))))
+	      
             ;; Commit current candidate so that Mozc learns it.
             (mozc-session-sendkey '(enter)))
 
