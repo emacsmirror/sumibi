@@ -687,87 +687,87 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
             (result nil))
         (sumibi-openai-http-post
          (list
-	(cons "system"
-              (concat
-               "あなたはローマ字とひらがなを日本語に変換するアシスタントです。"
-               "ローマ字の 「nn」 は 「ん」と読んでください。"
-               "[](URL)のようなmarkdown構文は維持してください。"
-               "# や ## や ### や #### のようなmarkdown構文は維持してください。"
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-               "ローマ字の字面をそのままひらがなや漢字にするだけで、元のローマ字にない文章を作り出さないでください。"
-               "出力は変換後の一文のみ。注釈や説明は一切付けないください。"
-               "もし、入力された文章が英語の文章と判断できた場合は、日本語に翻訳してください。"))
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       " 周辺の文章は、「こんにちは、中野です。watashi no namae ha nakano desu . どうぞよろしくお願いします。」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: watashi no namae ha nakano desu ."))
-	(cons "assistant"
-              "私の名前は中野です。")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「説明はここまでです。それ以外はikano toori desu .」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: ikano toori desu ."))
-	(cons "assistant"
-              "以下の通りです。")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「開始位置から終了位置までをhannishitei shimasuそれでは続いて、」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: hannishitei shimasu"))
-	(cons "assistant"
-              "範囲指定します")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「見てください!We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)、"
-	       "リアルな写真だと思いませんか？」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)"))
-	(cons "assistant"
-              "このような写真を撮ることに成功しました：\n![例](https://www.example.com/dir1/dir2/example.png)")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「ここまでが前半の説明です。\n"
-	       "## this is markdown section\n"
-	       "\n"
-	       "」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: ## this is markdown section"))
-	(cons "assistant"
-              "## これはMarkdownのセクションです。")
-	(cons "user"
-	      (format
-	       (concat 
-		"ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-		"周辺の文章は、「%s」"
-		"のような文章になっています。"
-		"周辺の文脈を見てそれに合った語彙を選んでください。: %s")
-	       surrounding core-roman)))
-       arg-n
-       (lambda (json-str)
-	 (let* ((json-obj (json-parse-string json-str))
-                (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
-           (setq result (mapcar (lambda (s) (concat prefix s)) lst))))
-       (lambda (json-str)
-	 (let* ((json-obj (json-parse-string json-str))
-		(lst (mapcar (lambda (s) (concat prefix s))
-		           (sumibi-analyze-openai-json-obj json-obj arg-n))))
-           (when (and lst (null deferred-func2))
-             (setq result lst))
-           (when lst
-             (save-excursion
-               (goto-char (marker-position saved-marker))
-               (insert (car lst))
-               ;; 見出し `###` 等の直後にスペースが無ければ補完する
-               (sumibi--ensure-space-after-heading (marker-position saved-marker))
-               (goto-char (marker-position saved-marker))))))
-       deferred-func2)
+	  (cons "system"
+		(concat
+		 "あなたはローマ字とひらがなを日本語に変換するアシスタントです。"
+		 "ローマ字の 「nn」 は 「ん」と読んでください。"
+		 "[](URL)のようなmarkdown構文は維持してください。"
+		 "# や ## や ### や #### のようなmarkdown構文は維持してください。"
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "ローマ字の字面をそのままひらがなや漢字にするだけで、元のローマ字にない文章を作り出さないでください。"
+		 "出力は変換後の一文のみ。注釈や説明は一切付けないください。"
+		 "もし、入力された文章が英語の文章と判断できた場合は、日本語に翻訳してください。"))
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 " 周辺の文章は、「こんにちは、中野です。watashi no namae ha nakano desu . どうぞよろしくお願いします。」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: watashi no namae ha nakano desu ."))
+	  (cons "assistant"
+		"私の名前は中野です。")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「説明はここまでです。それ以外はikano toori desu .」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: ikano toori desu ."))
+	  (cons "assistant"
+		"以下の通りです。")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「開始位置から終了位置までをhannishitei shimasuそれでは続いて、」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: hannishitei shimasu"))
+	  (cons "assistant"
+		"範囲指定します")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「見てください!We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)、"
+		 "リアルな写真だと思いませんか？」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)"))
+	  (cons "assistant"
+		"このような写真を撮ることに成功しました：\n![例](https://www.example.com/dir1/dir2/example.png)")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「ここまでが前半の説明です。\n"
+		 "## this is markdown section\n"
+		 "\n"
+		 "」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: ## this is markdown section"))
+	  (cons "assistant"
+		"## これはMarkdownのセクションです。")
+	  (cons "user"
+		(format
+		 (concat 
+		  "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		  "周辺の文章は、「%s」"
+		  "のような文章になっています。"
+		  "周辺の文脈を見てそれに合った語彙を選んでください。: %s")
+		 surrounding core-roman)))
+	 arg-n
+	 (lambda (json-str)
+	   (let* ((json-obj (json-parse-string json-str))
+                  (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
+             (setq result (mapcar (lambda (s) (concat prefix s)) lst))))
+	 (lambda (json-str)
+	   (let* ((json-obj (json-parse-string json-str))
+		  (lst (mapcar (lambda (s) (concat prefix s))
+		               (sumibi-analyze-openai-json-obj json-obj arg-n))))
+             (when (and lst (null deferred-func2))
+               (setq result lst))
+             (when lst
+               (save-excursion
+		 (goto-char (marker-position saved-marker))
+		 (insert (car lst))
+		 ;; 見出し `###` 等の直後にスペースが無ければ補完する
+		 (sumibi--ensure-space-after-heading (marker-position saved-marker))
+		 (goto-char (marker-position saved-marker))))))
+	 deferred-func2)
         result))))
 
 (defun sumibi-roman-to-yomigana (roman deferred-func2)
