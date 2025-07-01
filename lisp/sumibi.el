@@ -66,10 +66,11 @@ ROMAN itself is returned so that callers can safely fall back."
     (condition-case _err
         (if (string-match-p "[ \t]" roman)
             ;; 空白で分割 → 各セグメントを再帰的に1件だけ変換 → つなげて返す
-            (list (apply #'concat
-                         (mapcar (lambda (w)
-                                   (car (sumibi-mozc--candidate-list w 1)))
-                                 (split-string roman "[ \t]+" t))))
+            (let* ((joined (apply #'concat
+                                  (mapcar (lambda (w)
+                                            (car (sumibi-mozc--candidate-list w 1)))
+                                          (split-string roman "[ \t]+" t)))))
+              (list (propertize joined 'sumibi-mozc-candidate t)))
           ;; セグメント1件のときは従来ロジック
           (progn
             (mozc-session-create t)
@@ -99,7 +100,9 @@ ROMAN itself is returned so that callers can safely fall back."
                        ;; ひらがなに変換
                        (hira      (and kata (sumibi-katakana-to-hiragana kata))))
                   ;; 候補 + ひらがな読み + カタカナ読み
-                  (append values (delq nil (list hira kata))))))))
+                  (let ((lst (append values (delq nil (list hira kata)))))
+                    ;; 各候補に origin プロパティを付与して返す
+                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) lst)))))))
       ;; error path ----------------------------------------------------
       (error
        (sumibi-debug-print (format "sumibi-mozc--candidate-list:error\n"))
@@ -118,6 +121,19 @@ ROMAN itself is returned so that callers can safely fall back."
   "*漢字変換文字列を取り込む時に変換範囲に含めない文字を設定する."
   :type  'string
   :group 'sumibi)
+
+;; ------------------------------------------------------------------
+;; Utility: decide annotation label for a candidate string
+;; ------------------------------------------------------------------
+(defun sumibi--annotation-label (str idx)
+  "Return annotation label for STR which is the (IDX+1)-th candidate.
+
+If STR originated from `sumibi-mozc--candidate-list' the text property
+`sumibi-mozc-candidate' is expected to be non-nil and the label will be
+prefixed with \"Mozc\" so that users can recognise the source easily."
+  (if (get-text-property 0 'sumibi-mozc-candidate str)
+      (format "Mozc候補%d" idx)
+    (format "候補%d" idx)))
 
 ;; ------------------------------------------------------------------
 ;; Teach Mozc the actually committed candidate (optional)
@@ -761,7 +777,12 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
     ;; `mozc' backend -------------------------------------------------
     (if (sumibi-backend-mozc-p)
         (let ((cands (sumibi-mozc--candidate-list core-roman arg-n)))
-          (mapcar (lambda (s) (concat prefix s)) cands))
+          (mapcar (lambda (s)
+                    (let ((ret (concat prefix s)))
+                      (when (get-text-property 0 'sumibi-mozc-candidate s)
+                        (put-text-property 0 (length ret) 'sumibi-mozc-candidate t ret))
+                      ret))
+                  cands))
       ;; default: OpenAI backend -------------------------------------
       (let ((saved-marker (point-marker))
             (result nil))
@@ -983,10 +1004,10 @@ ARG-N: 候補を何件返すか
 DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
   (let ((lst (sumibi-kanji-to-english roman arg-n deferred-func2)))
     (append
-     (-map
+      (-map
       (lambda (x)
         (list (car x)
-              (format "候補%d" (+ 1 (cdr x)))
+              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
               0 'l (cdr x)))
       (-zip-pair
        lst
@@ -1031,7 +1052,7 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
           (-map
            (lambda (x)
              (list (car x)
-                   (format "候補%d" (+ 1 (cdr x)))
+                   (sumibi--annotation-label (car x) (+ 1 (cdr x)))
                    0 'h (cdr x)))
            (-zip-pair
 	    extended-lst
@@ -1064,7 +1085,7 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
      (-map
       (lambda (x)
         (list (car x)
-              (format "候補%d" (+ 1 (cdr x)))
+              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
               0 'l (cdr x)))
       (-zip-pair
        lst
