@@ -66,10 +66,11 @@ ROMAN itself is returned so that callers can safely fall back."
     (condition-case _err
         (if (string-match-p "[ \t]" roman)
             ;; 空白で分割 → 各セグメントを再帰的に1件だけ変換 → つなげて返す
-            (list (apply #'concat
-                         (mapcar (lambda (w)
-                                   (car (sumibi-mozc--candidate-list w 1)))
-                                 (split-string roman "[ \t]+" t))))
+            (let* ((joined (apply #'concat
+                                  (mapcar (lambda (w)
+                                            (car (sumibi-mozc--candidate-list w 1)))
+                                          (split-string roman "[ \t]+" t)))))
+              (list (propertize joined 'sumibi-mozc-candidate t)))
           ;; セグメント1件のときは従来ロジック
           (progn
             (mozc-session-create t)
@@ -99,7 +100,9 @@ ROMAN itself is returned so that callers can safely fall back."
                        ;; ひらがなに変換
                        (hira      (and kata (sumibi-katakana-to-hiragana kata))))
                   ;; 候補 + ひらがな読み + カタカナ読み
-                  (append values (delq nil (list hira kata))))))))
+                  (let ((lst (append values (delq nil (list hira kata)))))
+                    ;; 各候補に origin プロパティを付与して返す
+                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) lst)))))))
       ;; error path ----------------------------------------------------
       (error
        (sumibi-debug-print (format "sumibi-mozc--candidate-list:error\n"))
@@ -118,6 +121,99 @@ ROMAN itself is returned so that callers can safely fall back."
   "*漢字変換文字列を取り込む時に変換範囲に含めない文字を設定する."
   :type  'string
   :group 'sumibi)
+
+;; ------------------------------------------------------------------
+;; Utility: decide annotation label for a candidate string
+;; ------------------------------------------------------------------
+(defun sumibi--annotation-label (str idx)
+  "Return annotation label for STR which is the (IDX+1)-th candidate.
+
+If STR originated from `sumibi-mozc--candidate-list' the text property
+`sumibi-mozc-candidate' is expected to be non-nil and the label will be
+prefixed with \"Mozc\" so that users can recognise the source easily."
+  (if (get-text-property 0 'sumibi-mozc-candidate str)
+      (format "Mozc候補%d" idx)
+    (format "候補%d" idx)))
+
+;; ------------------------------------------------------------------
+;; Teach Mozc the actually committed candidate (optional)
+;; ------------------------------------------------------------------
+(defcustom sumibi-mozc-learn-at-kakutei t
+  "If non-nil, Sumibi asks Mozc to learn the candidate that was
+finally committed in `sumibi-select-kakutei'.
+
+This is achieved by spinning up a *separate* Mozc session at the
+moment of confirmation, performing the same conversion again, moving
+the selection to the committed candidate and sending an ENTER key so
+that Mozc's adaptive learning mechanism records the choice.
+
+The feature only works when `sumibi-backend' is `mozc'."
+  :type 'boolean
+  :group 'sumibi)
+
+;; Internal helper ----------------------------------------------------
+(defun sumibi--mozc-learn (roman committed)
+  "Let Mozc learn that ROMAN converts to COMMITTED.
+
+This function is called right after a candidate is confirmed via
+`sumibi-select-kakutei'.  A *new* Mozc session is created so that the
+learning operation is completely isolated from the session Sumibi
+uses for ordinary candidate acquisition.
+
+If COMMITTED cannot be found in Mozc's candidate list, the function
+simply commits the default candidate so that at least the roman string
+is registered in Mozc's history.  Any Mozc-related error is caught and
+silently ignored so as not to interfere with the original Sumibi
+workflow."
+  (when (and sumibi--mozc-available-p            ; Mozc is loadable
+             (sumibi-backend-mozc-p)             ; currently using Mozc backend
+             (stringp roman) (stringp committed)
+             (not (string-match-p "[ \t]" roman))) ; single segment only
+    (condition-case err
+        (progn
+	  (sumibi-debug-print (format "sumibi--mozc-learn:roman[%s]\n" roman))
+          ;; start isolated session
+          (mozc-session-create t)
+
+          ;; feed roman characters
+          (dolist (ch (string-to-list (downcase roman)))
+            (mozc-session-sendkey (list ch)))
+
+          ;; send <space> up to 3 times until Mozc returns candidates
+          (let* ((iteration 0)
+                 resp cands)
+            (while (and (< iteration 3)
+                        (progn
+                          (setq resp  (mozc-session-sendkey '(space)))
+                          (setq cands (and resp (mozc-protobuf-get resp 'candidates)))
+                          (null cands)))
+              (setq iteration (1+ iteration)))
+
+            (sumibi-debug-print (format "sumibi--mozc-learn:cands[%S]\n" cands))
+
+            (let* ((cand-list (and cands (mozc-protobuf-get cands 'candidate)))
+                   (values    (and cand-list
+                                   (mapcar (lambda (cand)
+                                             (mozc-protobuf-get cand 'value))
+                                           cand-list)))
+                   (idx       (and values
+                                   (cl-position committed values :test #'string=))))
+
+              ;; The first space may have moved the selection to candidate 1.
+              ;; Send UP once to ensure we are at candidate 0, then navigate.
+              (when (and idx (> idx 0))
+		(mozc-session-sendkey '(up))
+		(dotimes (_ idx)
+                  (mozc-session-sendkey '(down)))))
+	      
+            ;; Commit current candidate so that Mozc learns it.
+            (mozc-session-sendkey '(enter)))
+
+          ;; terminate session if supported
+          (when (fboundp 'mozc-session-delete)
+            (mozc-session-delete)))
+      (error
+       (sumibi-debug-print (format "sumibi--mozc-learn:error %s\n" err))))))
 
 ;; --------------------------------------------------------------
 ;; Backend selection for roman→kanji conversion.
@@ -681,93 +777,98 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
     ;; `mozc' backend -------------------------------------------------
     (if (sumibi-backend-mozc-p)
         (let ((cands (sumibi-mozc--candidate-list core-roman arg-n)))
-          (mapcar (lambda (s) (concat prefix s)) cands))
+          (mapcar (lambda (s)
+                    (let ((ret (concat prefix s)))
+                      (when (get-text-property 0 'sumibi-mozc-candidate s)
+                        (put-text-property 0 (length ret) 'sumibi-mozc-candidate t ret))
+                      ret))
+                  cands))
       ;; default: OpenAI backend -------------------------------------
       (let ((saved-marker (point-marker))
             (result nil))
         (sumibi-openai-http-post
          (list
-	(cons "system"
-              (concat
-               "あなたはローマ字とひらがなを日本語に変換するアシスタントです。"
-               "ローマ字の 「nn」 は 「ん」と読んでください。"
-               "[](URL)のようなmarkdown構文は維持してください。"
-               "# や ## や ### や #### のようなmarkdown構文は維持してください。"
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-               "ローマ字の字面をそのままひらがなや漢字にするだけで、元のローマ字にない文章を作り出さないでください。"
-               "出力は変換後の一文のみ。注釈や説明は一切付けないください。"
-               "もし、入力された文章が英語の文章と判断できた場合は、日本語に翻訳してください。"))
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       " 周辺の文章は、「こんにちは、中野です。watashi no namae ha nakano desu . どうぞよろしくお願いします。」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: watashi no namae ha nakano desu ."))
-	(cons "assistant"
-              "私の名前は中野です。")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「説明はここまでです。それ以外はikano toori desu .」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: ikano toori desu ."))
-	(cons "assistant"
-              "以下の通りです。")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「開始位置から終了位置までをhannishitei shimasuそれでは続いて、」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: hannishitei shimasu"))
-	(cons "assistant"
-              "範囲指定します")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「見てください!We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)、"
-	       "リアルな写真だと思いませんか？」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)"))
-	(cons "assistant"
-              "このような写真を撮ることに成功しました：\n![例](https://www.example.com/dir1/dir2/example.png)")
-	(cons "user"
-	      (concat
-	       "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-	       "周辺の文章は、「ここまでが前半の説明です。\n"
-	       "## this is markdown section\n"
-	       "\n"
-	       "」"
-	       "のような文章になっています。"
-	       "周辺の文脈を見てそれに合った語彙を選んでください。: ## this is markdown section"))
-	(cons "assistant"
-              "## これはMarkdownのセクションです。")
-	(cons "user"
-	      (format
-	       (concat 
-		"ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
-		"周辺の文章は、「%s」"
-		"のような文章になっています。"
-		"周辺の文脈を見てそれに合った語彙を選んでください。: %s")
-	       surrounding core-roman)))
-       arg-n
-       (lambda (json-str)
-	 (let* ((json-obj (json-parse-string json-str))
-                (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
-           (setq result (mapcar (lambda (s) (concat prefix s)) lst))))
-       (lambda (json-str)
-	 (let* ((json-obj (json-parse-string json-str))
-		(lst (mapcar (lambda (s) (concat prefix s))
-		           (sumibi-analyze-openai-json-obj json-obj arg-n))))
-           (when (and lst (null deferred-func2))
-             (setq result lst))
-           (when lst
-             (save-excursion
-               (goto-char (marker-position saved-marker))
-               (insert (car lst))
-               ;; 見出し `###` 等の直後にスペースが無ければ補完する
-               (sumibi--ensure-space-after-heading (marker-position saved-marker))
-               (goto-char (marker-position saved-marker))))))
-       deferred-func2)
+	  (cons "system"
+		(concat
+		 "あなたはローマ字とひらがなを日本語に変換するアシスタントです。"
+		 "ローマ字の 「nn」 は 「ん」と読んでください。"
+		 "[](URL)のようなmarkdown構文は維持してください。"
+		 "# や ## や ### や #### のようなmarkdown構文は維持してください。"
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "ローマ字の字面をそのままひらがなや漢字にするだけで、元のローマ字にない文章を作り出さないでください。"
+		 "出力は変換後の一文のみ。注釈や説明は一切付けないください。"
+		 "もし、入力された文章が英語の文章と判断できた場合は、日本語に翻訳してください。"))
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 " 周辺の文章は、「こんにちは、中野です。watashi no namae ha nakano desu . どうぞよろしくお願いします。」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: watashi no namae ha nakano desu ."))
+	  (cons "assistant"
+		"私の名前は中野です。")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「説明はここまでです。それ以外はikano toori desu .」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: ikano toori desu ."))
+	  (cons "assistant"
+		"以下の通りです。")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「開始位置から終了位置までをhannishitei shimasuそれでは続いて、」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: hannishitei shimasu"))
+	  (cons "assistant"
+		"範囲指定します")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「見てください!We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)、"
+		 "リアルな写真だと思いませんか？」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: We succeeded in taking a photo like this:\n![example](https://www.example.com/dir1/dir2/example.png)"))
+	  (cons "assistant"
+		"このような写真を撮ることに成功しました：\n![例](https://www.example.com/dir1/dir2/example.png)")
+	  (cons "user"
+		(concat
+		 "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		 "周辺の文章は、「ここまでが前半の説明です。\n"
+		 "## this is markdown section\n"
+		 "\n"
+		 "」"
+		 "のような文章になっています。"
+		 "周辺の文脈を見てそれに合った語彙を選んでください。: ## this is markdown section"))
+	  (cons "assistant"
+		"## これはMarkdownのセクションです。")
+	  (cons "user"
+		(format
+		 (concat 
+		  "ローマ字とひらがなの文を漢字仮名混じり文にしてください。"
+		  "周辺の文章は、「%s」"
+		  "のような文章になっています。"
+		  "周辺の文脈を見てそれに合った語彙を選んでください。: %s")
+		 surrounding core-roman)))
+	 arg-n
+	 (lambda (json-str)
+	   (let* ((json-obj (json-parse-string json-str))
+                  (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
+             (setq result (mapcar (lambda (s) (concat prefix s)) lst))))
+	 (lambda (json-str)
+	   (let* ((json-obj (json-parse-string json-str))
+		  (lst (mapcar (lambda (s) (concat prefix s))
+		               (sumibi-analyze-openai-json-obj json-obj arg-n))))
+             (when (and lst (null deferred-func2))
+               (setq result lst))
+             (when lst
+               (save-excursion
+		 (goto-char (marker-position saved-marker))
+		 (insert (car lst))
+		 ;; 見出し `###` 等の直後にスペースが無ければ補完する
+		 (sumibi--ensure-space-after-heading (marker-position saved-marker))
+		 (goto-char (marker-position saved-marker))))))
+	 deferred-func2)
         result))))
 
 (defun sumibi-roman-to-yomigana (roman deferred-func2)
@@ -903,10 +1004,10 @@ ARG-N: 候補を何件返すか
 DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
   (let ((lst (sumibi-kanji-to-english roman arg-n deferred-func2)))
     (append
-     (-map
+      (-map
       (lambda (x)
         (list (car x)
-              (format "候補%d" (+ 1 (cdr x)))
+              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
               0 'l (cdr x)))
       (-zip-pair
        lst
@@ -951,7 +1052,7 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
           (-map
            (lambda (x)
              (list (car x)
-                   (format "候補%d" (+ 1 (cdr x)))
+                   (sumibi--annotation-label (car x) (+ 1 (cdr x)))
                    0 'h (cdr x)))
            (-zip-pair
 	    extended-lst
@@ -984,7 +1085,7 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
      (-map
       (lambda (x)
         (list (car x)
-              (format "候補%d" (+ 1 (cdr x)))
+              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
               0 'l (cdr x)))
       (-zip-pair
        lst
@@ -1362,13 +1463,13 @@ _ARG: (未使用)"
   "候補選択を確定する."
   (interactive)
   ;; 候補番号リストをバックアップする。
+  (sumibi-debug-print (format "sumibi-select-kakutei\n"))
   (setq sumibi-cand-cur-backup sumibi-cand-cur)
   (setq sumibi-select-mode nil)
   (run-hooks 'sumibi-select-mode-end-hook)
   (sumibi-select-operation-reset)
   (sumibi-select-update-display)
   (sumibi-history-push))
-
 
 (defun sumibi-select-cancel ()
   "候補選択をキャンセルする."
@@ -1582,6 +1683,20 @@ _ARG: (未使用)"
      (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
      (bufname            . ,(buffer-name)))
    sumibi-history-stack)
+  ;; --------------------------------------------------------------
+  ;; Mozc learning (optional)
+  ;; --------------------------------------------------------------
+  (sumibi-debug-print (format "sumibi-history-push: (sumibi-backend-mozc-p)=%s sumibi--mozc-available-p=%s sumibi-last-roman=%s sumibi-last-fix=%s\n" (sumibi-backend-mozc-p) sumibi--mozc-available-p sumibi-last-roman sumibi-last-fix))
+  (when (and sumibi-mozc-learn-at-kakutei
+             (sumibi-backend-mozc-p)
+             sumibi--mozc-available-p
+             (stringp sumibi-last-roman)
+             (> (length sumibi-last-roman) 0)
+             (stringp sumibi-last-fix)
+             (> (length sumibi-last-fix) 0))
+    (sumibi-debug-print (format "sumibi-history-push: mozc learn roman=%S fix=%S\n"
+                               sumibi-last-roman sumibi-last-fix))
+    (sumibi--mozc-learn sumibi-last-roman sumibi-last-fix))
   (sumibi-debug-print (format "sumibi-history-push result: %S\n" sumibi-history-stack)))
 
 
