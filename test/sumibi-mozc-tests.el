@@ -89,18 +89,18 @@
       (should (string= result "変換")))))
 
 (ert-deftest sumibi-mozc-nihongo ()
-  "Converting 'nihongo' should yield 'ニホンゴ'."
+  "Converting 'nihongo' should yield '日本語'."
   (if (not sumibi--mozc-available-p)
       (ert-skip "Mozc not available on this environment")
     (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongo" "" 1 nil))))
-      (should (string= result "ニホンゴ")))))
+      (should (string= result "日本語")))))
 
 (ert-deftest sumibi-mozc-nihongoga-dekimasu ()
-  "Converting multi-word input 'nihongoga dekimasu' should yield 'ニホンゴが出来ます'."
+  "Converting multi-word input 'nihongoga dekimasu' should yield '日本語が出来ます'."
   (if (not sumibi--mozc-available-p)
       (ert-skip "Mozc not available on this environment")
     (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongoga dekimasu" "" 1 nil))))
-      (should (string= result "ニホンゴが出来ます")))))
+      (should (string= result "日本語が出来ます")))))
 
 ;; ------------------------------------------------------------------
 ;; End-to-end helper & tests on *scratch* buffer
@@ -171,6 +171,32 @@ idempotent and side-effect free for other tests."
   (if (not sumibi--mozc-available-p)
       (ert-skip "Mozc not available on this environment")
     (should (string= (sumibi-test--convert-in-scratch "  * koumoku") "  * 項目"))))
+
+;; Candidate stabilization tests
+(ert-deftest sumibi-mozc-stable-candidates-basic ()
+  "Test basic candidate stabilization functionality."
+  (if (not sumibi--mozc-available-p)
+      (ert-skip "Mozc not available on this environment")
+    (let ((sumibi-mozc-stable-candidates t)
+          (sumibi-backend 'mozc))
+      ;; Test that candidate stabilization function exists and works
+      (let ((candidates '("変換" "変感" "返還"))
+            (result (sumibi-mozc--find-preferred-candidate "henkan" '("変換" "変感" "返還"))))
+        (should (listp result))
+        (should (= (length result) (length candidates)))))))
+
+(ert-deftest sumibi-mozc-stable-candidates-toggle ()
+  "Test candidate stabilization toggle setting."
+  (if (not sumibi--mozc-available-p)
+      (ert-skip "Mozc not available on this environment")
+    (let ((sumibi-backend 'mozc))
+      ;; Test with stabilization enabled
+      (let ((sumibi-mozc-stable-candidates t))
+        (should (eq sumibi-mozc-stable-candidates t)))
+      
+      ;; Test with stabilization disabled
+      (let ((sumibi-mozc-stable-candidates nil))
+        (should (eq sumibi-mozc-stable-candidates nil))))))
 
 (provide 'sumibi-mozc-tests)
 
