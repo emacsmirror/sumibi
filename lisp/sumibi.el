@@ -100,13 +100,46 @@ ROMAN itself is returned so that callers can safely fall back."
                        ;; ひらがなに変換
                        (hira      (and kata (sumibi-katakana-to-hiragana kata))))
                   ;; 候補 + ひらがな読み + カタカナ読み
-                  (let ((lst (append values (delq nil (list hira kata)))))
+                  (let* ((lst (append values (delq nil (list hira kata))))
+                         ;; 履歴を考慮して候補順序を調整
+                         (reordered (sumibi-mozc--find-preferred-candidate roman lst)))
                     ;; 各候補に origin プロパティを付与して返す
-                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) lst)))))))
+                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) reordered)))))))
       ;; error path ----------------------------------------------------
       (error
        (sumibi-debug-print (format "sumibi-mozc--candidate-list:error\n"))
        (list roman)))))
+
+(defun sumibi-mozc--find-preferred-candidate (roman candidates)
+  "履歴からROMANに対応する過去の選択候補を探し、その候補を先頭に並び替える."
+  (if (not sumibi-history-stack)
+      candidates
+    (let ((preferred-candidate nil))
+      ;; 履歴から同じローマ字入力の記録を探す
+      (dolist (entry sumibi-history-stack)
+        (when (not preferred-candidate)  ; まだ見つかっていない場合のみ
+          (let ((last-roman (sumibi-assoc-ref 'last-roman entry nil)))
+            (when (and last-roman (equal roman (downcase last-roman)))
+              (let* ((kouho-list (sumibi-assoc-ref 'henkan-kouho-list entry nil))
+                     (cand-cur (sumibi-assoc-ref 'cand-cur entry nil)))
+                ;; 過去に選択された候補を取得
+                (when (and kouho-list cand-cur
+                           (>= cand-cur 0)
+                           (< cand-cur (length kouho-list)))
+                  (setq preferred-candidate (car (nth cand-cur kouho-list)))))))))
+      
+      ;; 見つかった場合は、その候補を先頭に移動
+      (if preferred-candidate
+          (progn
+            (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s for roman=%s\n" 
+                                       preferred-candidate roman))
+            ;; 候補リストから該当候補を削除して先頭に追加
+            (let ((filtered (remove preferred-candidate candidates)))
+              (cons preferred-candidate filtered)))
+        ;; 見つからない場合は元の順序のまま
+        (progn
+          (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history found for roman=%s\n" roman))
+          candidates)))))
 
 ;;; 
 ;;;
@@ -1719,6 +1752,7 @@ _ARG: (未使用)"
      (cand-cur-backup    . ,sumibi-cand-cur-backup    )
      (cand-len           . ,sumibi-cand-len           )
      (last-fix           . ,sumibi-last-fix           )
+     (last-roman         . ,sumibi-last-roman         )
      (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
      (bufname            . ,(buffer-name)))
    sumibi-history-stack)
