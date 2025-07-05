@@ -1265,10 +1265,49 @@ Argument INVERSE-FLAG：逆変換かどうか"
   (sumibi-init)
   (when sumibi-init
     (when (/= b e)
-      (if (sumibi-determine-sync-p (buffer-substring-no-properties b e))
+      (if (eq sumibi-backend 'mozc)
+          ;; Mozc backend: セグメントごとに分割して処理
+          (sumibi-henkan-region-mozc-segments b e inverse-flag)
+        ;; 他のbackend: 従来通り
+        (if (sumibi-determine-sync-p (buffer-substring-no-properties b e))
+            (sumibi-henkan-region-sync b e inverse-flag)
+          (sumibi-henkan-region-async b e inverse-flag))))))
+
+(defun sumibi-henkan-region-mozc-segments (b e inverse-flag)
+  "Mozc backend用のセグメント分割変換処理.
+Argument B: リージョンの開始位置
+Argument E: リージョンの終了位置
+Argument INVERSE-FLAG：逆変換かどうか"
+  (let* ((region-text (buffer-substring-no-properties b e))
+         (segments (split-string region-text "[ \t]+" t)))
+    (if (> (length segments) 1)
+        ;; 複数セグメントの場合：各セグメントを個別に変換
+        (sumibi-henkan-region-mozc-multiple-segments b e segments inverse-flag)
+      ;; 単一セグメントの場合：従来通り
+      (if (sumibi-determine-sync-p region-text)
           (sumibi-henkan-region-sync b e inverse-flag)
         (sumibi-henkan-region-async b e inverse-flag)))))
 
+(defun sumibi-henkan-region-mozc-multiple-segments (b e segments inverse-flag)
+  "複数セグメントを個別に変換する.
+Argument B: リージョンの開始位置
+Argument E: リージョンの終了位置
+Argument SEGMENTS: セグメントのリスト
+Argument INVERSE-FLAG：逆変換かどうか"
+  (let ((current-pos b)
+        (original-text (buffer-substring-no-properties b e)))
+    (save-excursion
+      (goto-char b)
+      (delete-region b e)
+      (dolist (segment segments)
+        (when (> (length segment) 0)
+          (let ((segment-start (point))
+                (segment-end (+ (point) (length segment))))
+            (insert segment)
+            ;; 個別セグメントを変換
+            (sumibi-henkan-region-sync segment-start segment-end inverse-flag)
+            ;; セグメント間にスペースを挿入しない（元の仕様通り）
+            ))))))
 
 
 (defun sumibi-char-charset (ch)
