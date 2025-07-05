@@ -101,10 +101,8 @@ ROMAN itself is returned so that callers can safely fall back."
                        (hira      (and kata (sumibi-katakana-to-hiragana kata))))
                   ;; 候補 + ひらがな読み + カタカナ読み
                   (let* ((lst (append values (delq nil (list hira kata))))
-                         ;; 履歴を考慮して候補順序を調整（設定によって有効/無効）
-                         (reordered (if sumibi-mozc-stable-candidates
-                                        (sumibi-mozc--find-preferred-candidate roman lst)
-                                      lst)))
+                         ;; 履歴を考慮して候補順序を調整
+                         (reordered (sumibi-mozc--find-preferred-candidate roman lst)))
                     ;; 各候補に origin プロパティを付与して返す
                     (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) reordered)))))))
       ;; error path ----------------------------------------------------
@@ -183,13 +181,6 @@ the selection to the committed candidate and sending an ENTER key so
 that Mozc's adaptive learning mechanism records the choice.
 
 The feature only works when `sumibi-backend' is `mozc'."
-  :type 'boolean
-  :group 'sumibi)
-
-(defcustom sumibi-mozc-stable-candidates t
-  "If non-nil, use conversion history to stabilize candidate ordering for Mozc.
-Mozcの変換候補の順位を履歴に基づいて安定化する。同じローマ字入力に対して
-過去に選択した候補を優先的に先頭に表示する。"
   :type 'boolean
   :group 'sumibi)
 
