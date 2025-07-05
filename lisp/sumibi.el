@@ -5,7 +5,7 @@
 ;; Copyright (C) 2023 Kiyoka Nishiyama
 ;;
 ;; Author: Kiyoka Nishiyama <kiyoka@sumibi.org>
-;; Version: 3.1.0
+;; Version: 3.2.0
 ;; Keywords: lisp, ime, japanese
 ;; Package-Requires: ((emacs "29.0") (popup "0.5.9") (unicode-escape "1.1") (deferred "0.5.1") (mozc))
 ;; URL: https://github.com/kiyoka/Sumibi
@@ -100,13 +100,46 @@ ROMAN itself is returned so that callers can safely fall back."
                        ;; ひらがなに変換
                        (hira      (and kata (sumibi-katakana-to-hiragana kata))))
                   ;; 候補 + ひらがな読み + カタカナ読み
-                  (let ((lst (append values (delq nil (list hira kata)))))
+                  (let* ((lst (append values (delq nil (list hira kata))))
+                         ;; 履歴を考慮して候補順序を調整
+                         (reordered (sumibi-mozc--find-preferred-candidate roman lst)))
                     ;; 各候補に origin プロパティを付与して返す
-                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) lst)))))))
+                    (mapcar (lambda (s) (propertize s 'sumibi-mozc-candidate t)) reordered)))))))
       ;; error path ----------------------------------------------------
       (error
        (sumibi-debug-print (format "sumibi-mozc--candidate-list:error\n"))
        (list roman)))))
+
+(defun sumibi-mozc--find-preferred-candidate (roman candidates)
+  "履歴からROMANに対応する過去の選択候補を探し、その候補を先頭に並び替える."
+  (if (not sumibi-history-stack)
+      candidates
+    (let ((preferred-candidate nil))
+      ;; 履歴から同じローマ字入力の記録を探す
+      (dolist (entry sumibi-history-stack)
+        (when (not preferred-candidate)  ; まだ見つかっていない場合のみ
+          (let ((last-roman (sumibi-assoc-ref 'last-roman entry nil)))
+            (when (and last-roman (equal roman (downcase last-roman)))
+              (let* ((kouho-list (sumibi-assoc-ref 'henkan-kouho-list entry nil))
+                     (cand-cur (sumibi-assoc-ref 'cand-cur entry nil)))
+                ;; 過去に選択された候補を取得
+                (when (and kouho-list cand-cur
+                           (>= cand-cur 0)
+                           (< cand-cur (length kouho-list)))
+                  (setq preferred-candidate (car (nth cand-cur kouho-list)))))))))
+      
+      ;; 見つかった場合は、その候補を先頭に移動
+      (if preferred-candidate
+          (progn
+            (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s for roman=%s\n" 
+                                       preferred-candidate roman))
+            ;; 候補リストから該当候補を削除して先頭に追加
+            (let ((filtered (remove preferred-candidate candidates)))
+              (cons preferred-candidate filtered)))
+        ;; 見つからない場合は元の順序のまま
+        (progn
+          (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history found for roman=%s\n" roman))
+          candidates)))))
 
 ;;; 
 ;;;
@@ -1265,10 +1298,49 @@ Argument INVERSE-FLAG：逆変換かどうか"
   (sumibi-init)
   (when sumibi-init
     (when (/= b e)
-      (if (sumibi-determine-sync-p (buffer-substring-no-properties b e))
+      (if (eq sumibi-backend 'mozc)
+          ;; Mozc backend: セグメントごとに分割して処理
+          (sumibi-henkan-region-mozc-segments b e inverse-flag)
+        ;; 他のbackend: 従来通り
+        (if (sumibi-determine-sync-p (buffer-substring-no-properties b e))
+            (sumibi-henkan-region-sync b e inverse-flag)
+          (sumibi-henkan-region-async b e inverse-flag))))))
+
+(defun sumibi-henkan-region-mozc-segments (b e inverse-flag)
+  "Mozc backend用のセグメント分割変換処理.
+Argument B: リージョンの開始位置
+Argument E: リージョンの終了位置
+Argument INVERSE-FLAG：逆変換かどうか"
+  (let* ((region-text (buffer-substring-no-properties b e))
+         (segments (split-string region-text "[ \t]+" t)))
+    (if (> (length segments) 1)
+        ;; 複数セグメントの場合：各セグメントを個別に変換
+        (sumibi-henkan-region-mozc-multiple-segments b e segments inverse-flag)
+      ;; 単一セグメントの場合：従来通り
+      (if (sumibi-determine-sync-p region-text)
           (sumibi-henkan-region-sync b e inverse-flag)
         (sumibi-henkan-region-async b e inverse-flag)))))
 
+(defun sumibi-henkan-region-mozc-multiple-segments (b e segments inverse-flag)
+  "複数セグメントを個別に変換する.
+Argument B: リージョンの開始位置
+Argument E: リージョンの終了位置
+Argument SEGMENTS: セグメントのリスト
+Argument INVERSE-FLAG：逆変換かどうか"
+  (let ((current-pos b)
+        (original-text (buffer-substring-no-properties b e)))
+    (save-excursion
+      (goto-char b)
+      (delete-region b e)
+      (dolist (segment segments)
+        (when (> (length segment) 0)
+          (let ((segment-start (point))
+                (segment-end (+ (point) (length segment))))
+            (insert segment)
+            ;; 個別セグメントを変換
+            (sumibi-henkan-region-sync segment-start segment-end inverse-flag)
+            ;; セグメント間にスペースを挿入しない（元の仕様通り）
+            ))))))
 
 
 (defun sumibi-char-charset (ch)
@@ -1680,6 +1752,7 @@ _ARG: (未使用)"
      (cand-cur-backup    . ,sumibi-cand-cur-backup    )
      (cand-len           . ,sumibi-cand-len           )
      (last-fix           . ,sumibi-last-fix           )
+     (last-roman         . ,sumibi-last-roman         )
      (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
      (bufname            . ,(buffer-name)))
    sumibi-history-stack)
@@ -2050,7 +2123,7 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
 
 
 (defconst sumibi-version
-  "3.1.0" ;;SUMIBI-VERSION
+  "3.2.0" ;;SUMIBI-VERSION
   )
 (defun sumibi-version (&optional _arg)
   "Sumibiのバージョン番号をミニバッファに表示する.

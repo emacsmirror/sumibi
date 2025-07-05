@@ -3,3 +3,4 @@
 /benchmark/__pycache__
 benchmark/AJIMEE-Bench
 benchmark/evaluation_items.json
+.claude/settings.local.json
