@@ -76,7 +76,7 @@ ROMAN itself is returned so that callers can safely fall back."
             (mozc-session-create t)
             (dolist (ch (string-to-list roman))
               (mozc-session-sendkey (list ch)))
-    
+	    
             (let* ((iteration 0) resp cands)
               (while (and (< iteration 3)
                           (progn
@@ -84,7 +84,7 @@ ROMAN itself is returned so that callers can safely fall back."
                             (setq cands (and resp (mozc-protobuf-get resp 'candidates)))
                             (null cands)))
                 (setq iteration (1+ iteration)))
-    
+	      
 	      (sumibi-debug-print (format "sumibi-mozc--candidate-list cands=%s\n" cands))
               (if (not cands)
                   (list roman)
@@ -132,7 +132,7 @@ ROMAN itself is returned so that callers can safely fall back."
       (if preferred-candidate
           (progn
             (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s for roman=%s\n" 
-                                       preferred-candidate roman))
+					preferred-candidate roman))
             ;; 候補リストから該当候補を削除して先頭に追加
             (let ((filtered (remove preferred-candidate candidates)))
               (cons preferred-candidate filtered)))
@@ -238,7 +238,7 @@ workflow."
 		(mozc-session-sendkey '(up))
 		(dotimes (_ idx)
                   (mozc-session-sendkey '(down)))))
-	      
+	    
             ;; Commit current candidate so that Mozc learns it.
             (mozc-session-sendkey '(enter)))
 
@@ -365,7 +365,7 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
     (let ((i 0))
       (while (<= i ?\177)
 	(define-key map (char-to-string i)
-	  'sumibi-kakutei-and-self-insert)
+		    'sumibi-kakutei-and-self-insert)
 	(setq i (1+ i))))
     (define-key map "\C-m"                   'sumibi-select-kakutei)
     (define-key map "\C-g"                   'sumibi-select-cancel)
@@ -747,20 +747,20 @@ Argument DEFERRED-FUNC2 : 非同期呼び出し時のコールバック関数 (2
 
      (t ;; 非同期バージョン
       (deferred:$
-        (deferred:url-retrieve url)
-        (deferred:nextc it
-          (lambda (buf)
-            (sumibi-debug-print (buffer-name buf))
-            (sumibi-debug-print "\n")
-            (if buf
-		(sumibi-parse-http-body buf)
-              (cons "504" "{\"error\": { \"message\" : \"TIMEOUT ERROR\"}}\n"))))
-        (deferred:nextc it
-          (lambda (status-and-body)
-            (atomic-change-group
-              (funcall deferred-func2)
-              (sumibi-debug-print (format "<<<%s>>>\n" (funcall deferred-func (cdr status-and-body)))))
-            t))))
+       (deferred:url-retrieve url)
+       (deferred:nextc it
+		       (lambda (buf)
+			 (sumibi-debug-print (buffer-name buf))
+			 (sumibi-debug-print "\n")
+			 (if buf
+			     (sumibi-parse-http-body buf)
+			   (cons "504" "{\"error\": { \"message\" : \"TIMEOUT ERROR\"}}\n"))))
+       (deferred:nextc it
+		       (lambda (status-and-body)
+			 (atomic-change-group
+			   (funcall deferred-func2)
+			   (sumibi-debug-print (format "<<<%s>>>\n" (funcall deferred-func (cdr status-and-body)))))
+			 t))))
      '())))
 
 
@@ -1037,7 +1037,7 @@ ARG-N: 候補を何件返すか
 DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
   (let ((lst (sumibi-kanji-to-english roman arg-n deferred-func2)))
     (append
-      (-map
+     (-map
       (lambda (x)
         (list (car x)
               (sumibi--annotation-label (car x) (+ 1 (cdr x)))
@@ -1056,7 +1056,7 @@ KOUHO-LST: (\"にほんご\" \"ニホンゴ\") のようなリスト.
 "
   ;; ひらがな候補を探す
   (let ((hiragana-kouho-lst
-	  (-filter
+	 (-filter
 	  (lambda (str)
 	    (string-match-p "^[ぁ-ん]+$" str))
 	  kouho-lst)))
@@ -1091,11 +1091,11 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
 	    extended-lst
 	    '(
 	      0 1 2 3 4 5 6 7 8 9
-		10 11 12 13 14 15 16 17 18 19
-		20 21 22 23 24 25 26 27 28 29
-		30 31 32 33 34 35 36 37 38 39
-		40 41 42 43 44 45 46 47 48 49
-		)))))
+	      10 11 12 13 14 15 16 17 18 19
+	      20 21 22 23 24 25 26 27 28 29
+	      30 31 32 33 34 35 36 37 38 39
+	      40 41 42 43 44 45 46 47 48 49
+	      )))))
     (append
      kouho-lst
      (list (list roman "原文まま" 0 'l (length kouho-lst))))))
@@ -1124,10 +1124,10 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
        lst
        '(
 	 0 1 2 3 4 5 6 7 8 9
-	   10 11 12 13 14 15 16 17 18 19
-	   20 21 22 23 24 25 26 27 28 29
-	   30 31 32 33 34 35 36 37 38 39
-	   40 41 42 43 44 45 46 47 48 49)))
+	 10 11 12 13 14 15 16 17 18 19
+	 20 21 22 23 24 25 26 27 28 29
+	 30 31 32 33 34 35 36 37 38 39
+	 40 41 42 43 44 45 46 47 48 49)))
      (list
       (list roman "原文まま" 0 'l (length lst))))))
 
@@ -1768,7 +1768,7 @@ _ARG: (未使用)"
              (stringp sumibi-last-fix)
              (> (length sumibi-last-fix) 0))
     (sumibi-debug-print (format "sumibi-history-push: mozc learn roman=%S fix=%S\n"
-                               sumibi-last-roman sumibi-last-fix))
+				sumibi-last-roman sumibi-last-fix))
     (sumibi--mozc-learn sumibi-last-roman sumibi-last-fix))
   (sumibi-debug-print (format "sumibi-history-push result: %S\n" sumibi-history-stack)))
 
