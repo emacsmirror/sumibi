@@ -577,11 +577,13 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 	(if sumibi-history-stack
             (progn
               (insert "<table>\n")
-              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
+              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Last-Roman</th><th>Last-Fix</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
               (let ((index 0))
 		(dolist (entry sumibi-history-stack)
 		  (let ((bufname (cdr (assoc 'bufname entry)))
 			(markers (cdr (assoc 'markers entry)))
+			(last-roman (cdr (assoc 'last-roman entry)))
+			(last-fix (cdr (assoc 'last-fix entry)))
 			(cand-cur (cdr (assoc 'cand-cur entry)))
 			(cand-len (cdr (assoc 'cand-len entry)))
 			(henkan-kouho-list (cdr (assoc 'henkan-kouho-list entry)))
@@ -590,6 +592,8 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
                     (insert (format "<td>%d</td>\n" index))
                     (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string markers)))
+                    (insert (format "<td>%s</td>\n" (html-escape-string (or last-roman "N/A"))))
+                    (insert (format "<td>%s</td>\n" (html-escape-string (or last-fix "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-len))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" henkan-kouho-list))))
