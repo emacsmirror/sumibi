@@ -589,7 +589,7 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
                     (insert "<tr>\n")
                     (insert (format "<td>%d</td>\n" index))
                     (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" markers))))
+                    (insert (format "<td>%s</td>\n" (html-escape-string markers)))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-len))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" henkan-kouho-list))))
@@ -606,17 +606,48 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 
 (defun html-escape-string (string)
   "HTMLエスケープ処理を行う."
-  (if (stringp string)
+  (let ((str (cond
+              ((stringp string) 
+               ;; 文字列の場合は、HTMLエスケープを最小限に抑える
+               (replace-regexp-in-string
+                "&" "&amp;"
+                string))
+              ((markerp string) 
+               (if (marker-position string)
+                   (format "marker:%d" (marker-position string))
+                 "marker:deleted"))
+              ((consp string)
+               (cond
+                ;; マーカーのペア
+                ((and (markerp (car string)) (markerp (cdr string)))
+                 (let ((start-pos (marker-position (car string)))
+                       (end-pos (marker-position (cdr string))))
+                   (format "(%s . %s)" 
+                           (if start-pos (number-to-string start-pos) "deleted")
+                           (if end-pos (number-to-string end-pos) "deleted"))))
+                ;; 通常のcons
+                (t (let ((raw-str (prin1-to-string string)))
+                     (replace-regexp-in-string
+                      "#<\\([^>]*\\)>"
+                      "[\\1]"
+                      raw-str)))))
+              (t 
+               ;; 通常のオブジェクトの場合、文字列化してから問題のある文字を置換
+               (let ((raw-str (prin1-to-string string)))
+                 (replace-regexp-in-string
+                  "#<\\([^>]*\\)>"
+                  "[\\1]"
+                  raw-str))))))
+    ;; HTMLエスケープ処理（文字列以外の場合のみ）
+    (if (stringp string)
+        str  ; 文字列の場合は既に処理済み
       (replace-regexp-in-string
        "&" "&amp;"
        (replace-regexp-in-string
-	"<" "&lt;"
-	(replace-regexp-in-string
-	 ">" "&gt;"
-	 (replace-regexp-in-string
-          "\"" "&quot;"
-          string))))
-    (format "%S" string)))
+        "<" "&lt;"
+        (replace-regexp-in-string
+         ">" "&gt;"
+         str))))))
 
 ;; HTTPクライアントの多重起動防止用
 (defvar sumibi-busy 0)
