@@ -524,6 +524,99 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
           (goto-char (point-max))
           (insert string)))))
 
+(defun sumibi-debug-save-dashboard ()
+  "デバッグ情報を~/.emacs.d/sumibi-debug-dashboard.htmlに保存する."
+  (interactive)
+  (let ((filename (expand-file-name "~/.emacs.d/sumibi-debug-dashboard.html")))
+    (with-temp-buffer
+      (insert "<!DOCTYPE html>\n")
+      (insert "<html>\n")
+      (insert "<head>\n")
+      (insert "<meta charset=\"UTF-8\">\n")
+      (insert "<title>Sumibi Debug Dashboard</title>\n")
+      (insert "<style>\n")
+      (insert "body { font-family: monospace; margin: 20px; }\n")
+      (insert "h1 { color: #333; }\n")
+      (insert "h2 { color: #666; margin-top: 30px; }\n")
+      (insert "table { border-collapse: collapse; width: 100%; margin-top: 10px; }\n")
+      (insert "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n")
+      (insert "th { background-color: #f2f2f2; }\n")
+      (insert "tr:nth-child(even) { background-color: #f9f9f9; }\n")
+      (insert ".variable { background-color: #e8f4f8; padding: 5px; margin: 5px 0; }\n")
+      (insert "</style>\n")
+      (insert "</head>\n")
+      (insert "<body>\n")
+      (insert "<h1>Sumibi Debug Dashboard</h1>\n")
+      (insert "<p>Generated at: " (current-time-string) "</p>\n")
+      
+      ;; カスタム変数の値を出力
+      (insert "<h2>Custom Variables</h2>\n")
+      (let ((custom-vars '(sumibi-stop-chars
+                           sumibi-mozc-learn-at-kakutei
+                           sumibi-backend
+                           sumibi-current-model
+                           sumibi-model-list
+                           sumibi-history-stack-limit
+                           sumibi-api-timeout
+                           sumibi-threshold-letters-of-long-sentence
+                           sumibi-surrounding-lines)))
+        (dolist (var custom-vars)
+          (insert (format "<div class=\"variable\"><strong>%s:</strong> %s</div>\n"
+                          (symbol-name var)
+                          (html-escape-string (format "%S" (symbol-value var)))))))
+    
+      ;; sumibi-history-stackをテーブルで出力
+      (insert "<h2>History Stack</h2>\n")
+      (insert (format "<p>Total entries: %d</p>\n" (length sumibi-history-stack)))
+    
+      ;; デバッグ情報を追加
+      (insert "<h3>Raw Stack Data</h3>\n")
+      (insert (format "<pre>%s</pre>\n" (html-escape-string (format "%S" sumibi-history-stack))))
+    
+      (if sumibi-history-stack
+          (progn
+            (insert "<table>\n")
+            (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
+            (let ((index 0))
+              (dolist (entry sumibi-history-stack)
+		(let ((bufname (cdr (assoc 'bufname entry)))
+                      (markers (cdr (assoc 'markers entry)))
+                      (cand-cur (cdr (assoc 'cand-cur entry)))
+                      (cand-len (cdr (assoc 'cand-len entry)))
+                      (henkan-kouho-list (cdr (assoc 'henkan-kouho-list entry)))
+                      (all-keys (mapcar 'car entry)))
+                  (insert "<tr>\n")
+                  (insert (format "<td>%d</td>\n" index))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" markers))))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-len))))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" henkan-kouho-list))))
+                  (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" all-keys))))
+                  (insert "</tr>\n")
+                  (setq index (1+ index)))))
+            (insert "</table>\n"))
+	(insert "<p>No history entries found.</p>\n"))
+      
+      (insert "</body>\n")
+      (insert "</html>\n")
+      (write-file filename)
+      (message "Debug dashboard saved to %s" filename))))
+
+(defun html-escape-string (string)
+  "HTMLエスケープ処理を行う."
+  (if (stringp string)
+      (replace-regexp-in-string
+       "&" "&amp;"
+       (replace-regexp-in-string
+	"<" "&lt;"
+	(replace-regexp-in-string
+	 ">" "&gt;"
+	 (replace-regexp-in-string
+          "\"" "&quot;"
+          string))))
+    (format "%S" string)))
+
 ;; HTTPクライアントの多重起動防止用
 (defvar sumibi-busy 0)
 
