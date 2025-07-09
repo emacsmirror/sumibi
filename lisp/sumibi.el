@@ -111,15 +111,15 @@ ROMAN itself is returned so that callers can safely fall back."
        (list roman)))))
 
 (defun sumibi-mozc--find-preferred-candidate (roman candidates)
-  "履歴からROMANに対応する過去の選択候補を探し、その候補を先頭に並び替える."
+  "履歴からROMANに対応する過去の選択候補を探し、その候補を先頭に並び替える（genbunキーで検索）."
   (if (not sumibi-history-stack)
       candidates
     (let ((preferred-candidate nil))
-      ;; 履歴から同じローマ字入力の記録を探す
+      ;; 履歴から同じ原文入力の記録を探す
       (dolist (entry sumibi-history-stack)
         (when (not preferred-candidate)  ; まだ見つかっていない場合のみ
-          (let ((last-roman (sumibi-assoc-ref 'last-roman entry nil)))
-            (when (and last-roman (equal roman (downcase last-roman)))
+          (let ((genbun (sumibi-assoc-ref 'genbun entry nil)))
+            (when (and genbun (equal roman genbun))
               (let* ((kouho-list (sumibi-assoc-ref 'henkan-kouho-list entry nil))
                      (cand-cur (sumibi-assoc-ref 'cand-cur entry nil)))
                 ;; 過去に選択された候補を取得
@@ -131,14 +131,14 @@ ROMAN itself is returned so that callers can safely fall back."
       ;; 見つかった場合は、その候補を先頭に移動
       (if preferred-candidate
           (progn
-            (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s for roman=%s\n" 
+            (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s for genbun=%s\n" 
 					preferred-candidate roman))
             ;; 候補リストから該当候補を削除して先頭に追加
             (let ((filtered (remove preferred-candidate candidates)))
               (cons preferred-candidate filtered)))
         ;; 見つからない場合は元の順序のまま
         (progn
-          (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history found for roman=%s\n" roman))
+          (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history found for genbun=%s\n" roman))
           candidates)))))
 
 ;;; 
@@ -577,11 +577,12 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 	(if sumibi-history-stack
             (progn
               (insert "<table>\n")
-              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Last-Roman</th><th>Last-Fix</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
+              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Genbun</th><th>Last-Roman</th><th>Last-Fix</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
               (let ((index 0))
 		(dolist (entry sumibi-history-stack)
 		  (let ((bufname (cdr (assoc 'bufname entry)))
 			(markers (cdr (assoc 'markers entry)))
+			(genbun (cdr (assoc 'genbun entry)))
 			(last-roman (cdr (assoc 'last-roman entry)))
 			(last-fix (cdr (assoc 'last-fix entry)))
 			(cand-cur (cdr (assoc 'cand-cur entry)))
@@ -592,6 +593,7 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
                     (insert (format "<td>%d</td>\n" index))
                     (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string markers)))
+                    (insert (format "<td>%s</td>\n" (html-escape-string (or genbun "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (or last-roman "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (or last-fix "N/A"))))
                     (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
@@ -680,6 +682,7 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 (defvar sumibi-cand-len nil)             ; 候補数
 (defvar sumibi-last-fix "")              ; 最後に確定した文字列
 (defvar sumibi-last-roman "")            ; 最後にsumibi-serverにリクエストしたローマ字文字列
+(defvar sumibi-genbun "")                ; 原文（変換前の文字列）
 (defvar sumibi-select-operation-times 0) ; 選択操作回数
 (defvar sumibi-henkan-kouho-list nil)    ; 変換結果リスト(サーバから帰ってきたデータそのもの)
 
@@ -1354,6 +1357,7 @@ Argument INVERSE-FLAG：逆変換かどうか"
            (yomi (buffer-substring-no-properties b e))
 	   (surrounding-text (sumibi-extract-lines-around-point b (ceiling (/ (max 2 sumibi-surrounding-lines) 2))))
            (henkan-list (sumibi-henkan-request yomi surrounding-text inverse-flag nil)))
+      (setq sumibi-genbun yomi)
       (if henkan-list
           (condition-case err
               (progn
@@ -1399,6 +1403,7 @@ Argument INVERSE-FLAG：逆変換かどうか"
           (saved-b-marker 0)
           (saved-e-marker 0)
           (cur-buf (current-buffer)))
+      (setq sumibi-genbun yomi)
       (deactivate-mark)
       (goto-char e)
       (setq saved-e-marker (point-marker))
@@ -1442,6 +1447,7 @@ Argument E: リージョンの終了位置
 Argument INVERSE-FLAG：逆変換かどうか"
   (let* ((region-text (buffer-substring-no-properties b e))
          (segments (split-string region-text "[ \t]+" t)))
+    (setq sumibi-genbun region-text)
     (if (> (length segments) 1)
         ;; 複数セグメントの場合：各セグメントを個別に変換
         (sumibi-henkan-region-mozc-multiple-segments b e segments inverse-flag)
@@ -1666,6 +1672,18 @@ _ARG: (未使用)"
   ;; 候補番号リストをバックアップする。
   (sumibi-debug-print (format "sumibi-select-kakutei\n"))
   (setq sumibi-cand-cur-backup sumibi-cand-cur)
+  
+  ;; genbunが設定されていない場合、候補リストから"原文まま"の候補を取得
+  (when (or (not sumibi-genbun) (string= sumibi-genbun ""))
+    (catch 'found
+      (dolist (candidate sumibi-henkan-kouho-list)
+        (when (and (listp candidate) 
+                   (>= (length candidate) 2)
+                   (string-equal (nth 1 candidate) "原文まま"))
+          (setq sumibi-genbun (nth 0 candidate))
+          (sumibi-debug-print (format "sumibi-select-kakutei: genbun set from 原文まま candidate: %S\n" sumibi-genbun))
+          (throw 'found t)))))
+  
   (setq sumibi-select-mode nil)
   (run-hooks 'sumibi-select-mode-end-hook)
   (sumibi-select-operation-reset)
@@ -1861,6 +1879,7 @@ _ARG: (未使用)"
              (setq sumibi-cand-cur-backup    (sumibi-assoc-ref 'cand-cur-backup alist    nil))
              (setq sumibi-cand-len           (sumibi-assoc-ref 'cand-len alist           nil))
              (setq sumibi-last-fix           pickup)
+             (setq sumibi-genbun             (sumibi-assoc-ref 'genbun alist             nil))
              (setq sumibi-henkan-kouho-list  (sumibi-assoc-ref 'henkan-kouho-list alist  nil))
 
              (sumibi-debug-print (format "sumibi-history-search : sumibi-markers         : %S\n" sumibi-markers))
@@ -1868,6 +1887,7 @@ _ARG: (未使用)"
              (sumibi-debug-print (format "sumibi-history-search : sumibi-cand-cur-backup : %S\n" sumibi-cand-cur-backup))
              (sumibi-debug-print (format "sumibi-history-search : sumibi-cand-len %S\n" sumibi-cand-len))
              (sumibi-debug-print (format "sumibi-history-search : sumibi-last-fix %S\n" sumibi-last-fix))
+             (sumibi-debug-print (format "sumibi-history-search : sumibi-genbun %S\n" sumibi-genbun))
              (sumibi-debug-print (format "sumibi-history-search : sumibi-henkan-kouho-list %S\n" sumibi-henkan-kouho-list))))))
      sumibi-history-stack)
     found))
@@ -1882,6 +1902,7 @@ _ARG: (未使用)"
      (cand-len           . ,sumibi-cand-len           )
      (last-fix           . ,sumibi-last-fix           )
      (last-roman         . ,sumibi-last-roman         )
+     (genbun             . ,sumibi-genbun             )
      (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
      (bufname            . ,(buffer-name)))
    sumibi-history-stack)
