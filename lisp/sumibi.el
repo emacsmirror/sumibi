@@ -549,7 +549,7 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 	(insert "<body>\n")
 	(insert "<h1>Sumibi Debug Dashboard</h1>\n")
 	(insert "<p>Generated at: " (current-time-string) "</p>\n")
-      
+	
 	;; カスタム変数の値を出力
 	(insert "<h2>Custom Variables</h2>\n")
 	(let ((custom-vars '(sumibi-stop-chars
@@ -565,46 +565,42 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
             (insert (format "<div class=\"variable\"><strong>%s:</strong> %s</div>\n"
                             (symbol-name var)
                             (html-escape-string (format "%S" (symbol-value var)))))))
-    
+	
 	;; sumibi-history-stackをテーブルで出力
 	(insert "<h2>History Stack</h2>\n")
 	(insert (format "<p>Total entries: %d</p>\n" (length sumibi-history-stack)))
-    
+	
 	;; デバッグ情報を追加
 	(insert "<h3>Raw Stack Data</h3>\n")
 	(insert (format "<pre>%s</pre>\n" (html-escape-string (format "%S" sumibi-history-stack))))
-    
+	
 	(if sumibi-history-stack
             (progn
               (insert "<table>\n")
-              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Genbun</th><th>Last-Roman</th><th>Last-Fix</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th><th>All Keys</th></tr>\n")
+              (insert "<tr><th>Index</th><th>Buffer Name</th><th>Markers</th><th>Genbun</th><th>Last-Fix</th><th>Cand-Cur</th><th>Cand-Len</th><th>Henkan-Kouho-List</th></tr>\n")
               (let ((index 0))
 		(dolist (entry sumibi-history-stack)
 		  (let ((bufname (cdr (assoc 'bufname entry)))
 			(markers (cdr (assoc 'markers entry)))
 			(genbun (cdr (assoc 'genbun entry)))
-			(last-roman (cdr (assoc 'last-roman entry)))
 			(last-fix (cdr (assoc 'last-fix entry)))
 			(cand-cur (cdr (assoc 'cand-cur entry)))
 			(cand-len (cdr (assoc 'cand-len entry)))
-			(henkan-kouho-list (cdr (assoc 'henkan-kouho-list entry)))
-			(all-keys (mapcar 'car entry)))
+			(henkan-kouho-list (cdr (assoc 'henkan-kouho-list entry))))
                     (insert "<tr>\n")
-                    (insert (format "<td>%d</td>\n" index))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string markers)))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (or genbun "N/A"))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (or last-roman "N/A"))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (or last-fix "N/A"))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-len))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" henkan-kouho-list))))
-                    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" all-keys))))
-                    (insert "</tr>\n")
-                    (setq index (1+ index)))))
-              (insert "</table>\n"))
+		    (insert (format "<td>%d</td>\n" index))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (or bufname "N/A"))))
+		    (insert (format "<td>%s</td>\n" (html-escape-string markers)))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (or genbun "N/A"))))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (or last-fix "N/A"))))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-cur))))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" cand-len))))
+		    (insert (format "<td>%s</td>\n" (html-escape-string (format "%S" henkan-kouho-list))))
+		    (insert "</tr>\n")
+		    (setq index (1+ index)))))
+	      (insert "</table>\n"))
 	  (insert "<p>No history entries found.</p>\n"))
-      
+	
 	(insert "</body>\n")
 	(insert "</html>\n")
 	(write-file filename)
@@ -613,33 +609,33 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 (defun html-escape-string (string)
   "HTMLエスケープ処理を行う."
   (let ((str (cond
-              ((stringp string) 
-               ;; 文字列の場合は、HTMLエスケープを最小限に抑える
-               (replace-regexp-in-string
+	      ((stringp string) 
+	       ;; 文字列の場合は、HTMLエスケープを最小限に抑える
+	       (replace-regexp-in-string
                 "&" "&amp;"
                 string))
-              ((markerp string) 
-               (if (marker-position string)
+	      ((markerp string) 
+	       (if (marker-position string)
                    (format "marker:%d" (marker-position string))
                  "marker:deleted"))
-              ((consp string)
-               (cond
+	      ((consp string)
+	       (cond
                 ;; マーカーのペア
                 ((and (markerp (car string)) (markerp (cdr string)))
                  (let ((start-pos (marker-position (car string)))
-                       (end-pos (marker-position (cdr string))))
+		       (end-pos (marker-position (cdr string))))
                    (format "(%s . %s)" 
                            (if start-pos (number-to-string start-pos) "deleted")
                            (if end-pos (number-to-string end-pos) "deleted"))))
                 ;; 通常のcons
                 (t (let ((raw-str (prin1-to-string string)))
                      (replace-regexp-in-string
-                      "#<\\([^>]*\\)>"
-                      "[\\1]"
-                      raw-str)))))
-              (t 
-               ;; 通常のオブジェクトの場合、文字列化してから問題のある文字を置換
-               (let ((raw-str (prin1-to-string string)))
+		      "#<\\([^>]*\\)>"
+		      "[\\1]"
+		      raw-str)))))
+	      (t 
+	       ;; 通常のオブジェクトの場合、文字列化してから問題のある文字を置換
+	       (let ((raw-str (prin1-to-string string)))
                  (replace-regexp-in-string
                   "#<\\([^>]*\\)>"
                   "[\\1]"
@@ -761,14 +757,14 @@ space between the marker and the text.  This prevents constructs like
                 (p (1- (point))))
             ;; Skip backward over additional marker chars for headings (#).
             (when (eq marker ?#)
-              (while (and (> p bol) (eq (char-before p) ?#))
+	      (while (and (> p bol) (eq (char-before p) ?#))
                 (setq p (1- p))))
             ;; Skip backward over whitespace.
             (while (and (> p bol) (memq (char-before p) '(?  ?\t)))
-              (setq p (1- p)))
+	      (setq p (1- p)))
             (when (= p bol)
-              ;; Confirm there's no space after the marker(s).
-              (unless (memq (char-after) '(?  ?\t))
+	      ;; Confirm there's no space after the marker(s).
+	      (unless (memq (char-after) '(?  ?\t))
                 (insert " ")))))))))
 
 
@@ -859,9 +855,9 @@ Argument DEFERRED-FUNC2 : 非同期呼び出し時のコールバック関数 (2
            (string-join
             (-map
              (lambda (x)
-               (format " {\"role\": \"%s\",    \"content\": \"%s\"}"
-                       (car x)
-                       (sumibi-escape-for-json (cdr x))))
+	       (format " {\"role\": \"%s\",    \"content\": \"%s\"}"
+		       (car x)
+		       (sumibi-escape-for-json (cdr x))))
              message-lst)
             ",")
            "  ] "
@@ -870,9 +866,9 @@ Argument DEFERRED-FUNC2 : 非同期呼び出し時のコールバック関数 (2
      ((not deferred-func2) ;; 同期バージョン
       (let ((status-and-body
              (let ((buf (url-retrieve-synchronously url t t sumibi-api-timeout)))
-               (sumibi-debug-print (buffer-name buf))
-               (sumibi-debug-print "\n")
-               (if buf
+	       (sumibi-debug-print (buffer-name buf))
+	       (sumibi-debug-print "\n")
+	       (if buf
 		   (sumibi-parse-http-body buf)
                  (cons "504" "{\"error\": { \"message\" : \"TIMEOUT ERROR\"}}\n")))))
         (funcall sync-func (cdr status-and-body))))
@@ -913,9 +909,9 @@ Argument DEFERRED-FUNC2 : 非同期呼び出し時のコールバック関数 (2
                 (gethash "content"
                          (gethash "message"
                                   (aref (gethash "choices" json-obj) count))))
-               (utf8-str
+	       (utf8-str
                 (decode-coding-string (url-unhex-string hex-str) 'utf-8))
-               (clean-str
+	       (clean-str
 		;; 末尾の改行文字を削除する
 		(string-trim-right utf8-str "\n")))
           (setq result (cons clean-str result)))
@@ -944,9 +940,9 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
         (let ((cands (sumibi-mozc--candidate-list core-roman arg-n)))
           (mapcar (lambda (s)
                     (let ((ret (concat prefix s)))
-                      (when (get-text-property 0 'sumibi-mozc-candidate s)
+		      (when (get-text-property 0 'sumibi-mozc-candidate s)
                         (put-text-property 0 (length ret) 'sumibi-mozc-candidate t ret))
-                      ret))
+		      ret))
                   cands))
       ;; default: OpenAI backend -------------------------------------
       (let ((saved-marker (point-marker))
@@ -1023,11 +1019,11 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
 	 (lambda (json-str)
 	   (let* ((json-obj (json-parse-string json-str))
 		  (lst (mapcar (lambda (s) (concat prefix s))
-		               (sumibi-analyze-openai-json-obj json-obj arg-n))))
+			       (sumibi-analyze-openai-json-obj json-obj arg-n))))
              (when (and lst (null deferred-func2))
-               (setq result lst))
+	       (setq result lst))
              (when lst
-               (save-excursion
+	       (save-excursion
 		 (goto-char (marker-position saved-marker))
 		 (insert (car lst))
 		 ;; 見出し `###` 等の直後にスペースが無ければ補完する
@@ -1049,21 +1045,21 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
       (sumibi-openai-http-post
        (list
 	(cons "system"
-              "あなたはローマ字をひらがなとカタカナに変換するアシスタントです。ローマ字の 「nn」 は 「ん」と読んでください。")
+	      "あなたはローマ字をひらがなとカタカナに変換するアシスタントです。ローマ字の 「nn」 は 「ん」と読んでください。")
 	(cons "user"
-              "ローマ字をひらがなとカタカナにしてください : shita")
+	      "ローマ字をひらがなとカタカナにしてください : shita")
 	(cons "assistant"
-              "した シタ")
+	      "した シタ")
 	(cons "user"
-              "ローマ字をひらがなとカタカナにしてください : nano")
+	      "ローマ字をひらがなとカタカナにしてください : nano")
 	(cons "assistant"
-              "なの ナノ")
+	      "なの ナノ")
 	(cons "user"
-              "ローマ字をひらがなとカタカナにしてください : aiueokakikukeko")
+	      "ローマ字をひらがなとカタカナにしてください : aiueokakikukeko")
 	(cons "assistant"
-              "あいうえおかきくけこ アイウエオカキクケコ")
+	      "あいうえおかきくけこ アイウエオカキクケコ")
 	(cons "user"
-              (format "ローマ字をひらがなとカタカナにしてください : %s" roman)))
+	      (format "ローマ字をひらがなとカタカナにしてください : %s" roman)))
        1
        (lambda (json-str)
 	 (let ((json-obj (json-parse-string json-str)))
@@ -1072,7 +1068,7 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
 	 (let* ((json-obj (json-parse-string json-str))
 		(lst (split-string (car (sumibi-analyze-openai-json-obj json-obj 1)))))
            (if lst
-               (save-excursion
+	       (save-excursion
 		 (goto-char (marker-position saved-marker))
 		 (insert (car lst))
 		 (goto-char (marker-position saved-marker))))))
@@ -1105,12 +1101,12 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
          (split-string (car (sumibi-analyze-openai-json-obj json-obj 1)))))
      (lambda (json-str)
        (let* ((json-obj (json-parse-string json-str))
-              (lst (split-string (car (sumibi-analyze-openai-json-obj json-obj 1)))))
+	      (lst (split-string (car (sumibi-analyze-openai-json-obj json-obj 1)))))
          (if lst
              (save-excursion
-               (goto-char (marker-position saved-marker))
-               (insert (car lst))
-               (goto-char (marker-position saved-marker))))))
+	       (goto-char (marker-position saved-marker))
+	       (insert (car lst))
+	       (goto-char (marker-position saved-marker))))))
      deferred-func2)))
 
 (defun sumibi-kanji-to-english (kanji arg-n deferred-func2)
@@ -1141,12 +1137,12 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
          (sumibi-analyze-openai-json-obj json-obj arg-n)))
      (lambda (json-str)
        (let* ((json-obj (json-parse-string json-str))
-              (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
+	      (lst (sumibi-analyze-openai-json-obj json-obj arg-n)))
          (if lst
              (save-excursion
-               (goto-char (marker-position saved-marker))
-               (insert (car lst))
-               (goto-char (marker-position saved-marker))))))
+	       (goto-char (marker-position saved-marker))
+	       (insert (car lst))
+	       (goto-char (marker-position saved-marker))))))
      deferred-func2)))
 
 (defun sumibi-determine-number-of-n (request-str)
@@ -1172,8 +1168,8 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
      (-map
       (lambda (x)
         (list (car x)
-              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
-              0 'l (cdr x)))
+	      (sumibi--annotation-label (car x) (+ 1 (cdr x)))
+	      0 'l (cdr x)))
       (-zip-pair
        lst
        '(0 1 2 3 4)))
@@ -1250,8 +1246,8 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
      (-map
       (lambda (x)
         (list (car x)
-              (sumibi--annotation-label (car x) (+ 1 (cdr x)))
-              0 'l (cdr x)))
+	      (sumibi--annotation-label (car x) (+ 1 (cdr x)))
+	      0 'l (cdr x)))
       (-zip-pair
        lst
        '(
@@ -1280,7 +1276,7 @@ str: ひらがな文字列"
   (apply 'concat
          (mapcar (lambda (char)
                    (if (and (>= char #x30A1) (<= char #x30F6))
-                       (string (- char #x60))
+		       (string (- char #x60))
                      (string char)))
                  (string-to-list str))))
 
@@ -1360,7 +1356,7 @@ Argument INVERSE-FLAG：逆変換かどうか"
       (setq sumibi-genbun yomi)
       (if henkan-list
           (condition-case err
-              (progn
+	      (progn
                 (setq
                  ;; 変換結果の保持
                  sumibi-henkan-kouho-list henkan-list
@@ -1420,9 +1416,9 @@ Argument INVERSE-FLAG：逆変換かどうか"
          (lambda ()
            (with-current-buffer cur-buf
              (save-excursion
-               (delete-overlay yomi-overlay)
-               (delete-region (marker-position saved-b-marker)
-                              (marker-position saved-e-marker))))))))))
+	       (delete-overlay yomi-overlay)
+	       (delete-region (marker-position saved-b-marker)
+			      (marker-position saved-e-marker))))))))))
 
 (defun sumibi-henkan-region (b e inverse-flag)
   "指定された region を漢字変換する.  同期か非同期かはBからEまでの文字数で決定する.
@@ -1567,23 +1563,23 @@ Argument SELECT-MODE：選択状態"
         (when select-mode (insert "|"))
         
         (let* (
-               (start       (point-marker)))
+	       (start       (point-marker)))
           (progn
             (insert insert-word)
             (sumibi--ensure-space-after-heading (marker-position start))
             (message "[%s] candidate (%d/%d)" insert-word (+ sumibi-cand-cur 1) sumibi-cand-len)
             (let* ((end         (point-marker))
                    (ov          (make-overlay start end)))
-              
-              ;; 確定文字列の作成
-              (setq sumibi-last-fix insert-word)
-              
-              ;; 選択中の場所を装飾する。
-              (when select-mode
+	      
+	      ;; 確定文字列の作成
+	      (setq sumibi-last-fix insert-word)
+	      
+	      ;; 選択中の場所を装飾する。
+	      (when select-mode
                 (overlay-put ov 'face 'default)
                 (overlay-put ov 'face 'highlight))
-              (setq sumibi-markers (cons start end))
-              (sumibi-debug-print (format "insert:[%s] point:%d-%d\n" insert-word (marker-position start) (marker-position end))))))
+	      (setq sumibi-markers (cons start end))
+	      (sumibi-debug-print (format "insert:[%s] point:%d-%d\n" insert-word (marker-position start) (marker-position end))))))
         
         ;; fenceの範囲を設定する
         (when select-mode (insert "|"))
@@ -1632,7 +1628,7 @@ Argument SELECT-MODE：選択状態"
     (let* ((lst
             (mapcar
              (lambda (x)
-               (concat
+	       (concat
                 (nth sumibi-tango-index x)
                 "   ; "
                 (nth sumibi-annotation-index x)))
@@ -1821,9 +1817,9 @@ _ARG: (未使用)"
                     (marker-position (cdr markers)))
            (if (= (marker-position (car markers))
                   (marker-position (cdr markers)))
-               ;; マークの開始と終了が同じ位置を指している場合は、
-               ;; そのマークは既に無効(選択モードの再表示で一旦マーク周辺の文字列が削除された)
-               (progn
+	       ;; マークの開始と終了が同じ位置を指している場合は、
+	       ;; そのマークは既に無効(選択モードの再表示で一旦マーク周辺の文字列が削除された)
+	       (progn
                  (set-marker (car markers) nil)
                  (set-marker (cdr markers) nil))
              (push alist temp-list)))))
@@ -1853,11 +1849,11 @@ _ARG: (未使用)"
     (mapc
      (lambda (alist)
        (let* ((markers  (sumibi-assoc-ref 'markers  alist nil))
-              (last-fix (sumibi-assoc-ref 'last-fix alist ""))
-              (end      (marker-position (cdr markers)))
-              (start    (- end (length last-fix)))
-              (bufname  (sumibi-assoc-ref 'bufname alist ""))
-              (pickup   (if (string-equal bufname (buffer-name))
+	      (last-fix (sumibi-assoc-ref 'last-fix alist ""))
+	      (end      (marker-position (cdr markers)))
+	      (start    (- end (length last-fix)))
+	      (bufname  (sumibi-assoc-ref 'bufname alist ""))
+	      (pickup   (if (string-equal bufname (buffer-name))
                             (buffer-substring start end)
                           "")))
          (sumibi-debug-print (format "sumibi-history-search  bufname:   [%s]\n"   bufname))
@@ -1873,8 +1869,8 @@ _ARG: (未使用)"
            (setq found t)
            (when load-flag
              (setq sumibi-markers            (cons
-                                              (move-marker (car markers) start)
-                                              (cdr markers)))
+					      (move-marker (car markers) start)
+					      (cdr markers)))
              (setq sumibi-cand-cur           (sumibi-assoc-ref 'cand-cur alist           nil))
              (setq sumibi-cand-cur-backup    (sumibi-assoc-ref 'cand-cur-backup alist    nil))
              (setq sumibi-cand-len           (sumibi-assoc-ref 'cand-len alist           nil))
@@ -1958,13 +1954,13 @@ _ARG: (未使用)"
         (sumibi-debug-print (format "ascii? (%s) => t\n" (preceding-char)))
         ;; カーソル直前が alphabet だったら
         (let ((end (point))
-              (gap (sumibi-skip-chars-backward)))
+	      (gap (sumibi-skip-chars-backward)))
           (when (/= gap 0)
             ;; 意味のある入力が見つかったので変換する
             (let (
                   (b (+ end gap))
                   (e end))
-              (sumibi-henkan-region b e nil)))))
+	      (sumibi-henkan-region b e nil)))))
        
        ((or (sumibi-kanji (preceding-char))
             (sumibi-nkanji (preceding-char)))
@@ -2010,7 +2006,7 @@ _ARG: (未使用)"
           (lambda (x)
             (if (string-equal x "")
                 nil
-              (sumibi-kanji (string-to-char x))))
+	      (sumibi-kanji (string-to-char x))))
           (split-string str ""))))
     (< 0 (length kanji-lst))))
 
@@ -2031,8 +2027,8 @@ _ARG: (未使用)"
   (let* (
          (skip-chars
           (if auto-fill-function
-              ;; auto-fill-mode が有効になっている場合改行があってもskipを続ける
-              (concat sumibi-skip-chars "\n")
+	      ;; auto-fill-mode が有効になっている場合改行があってもskipを続ける
+	      (concat sumibi-skip-chars "\n")
             ;; auto-fill-modeが無効の場合はそのまま
             sumibi-skip-chars))
          
@@ -2051,11 +2047,11 @@ _ARG: (未使用)"
           (save-excursion
             (backward-paragraph)
             (when (< 1 (point))
-              (forward-line 1))
+	      (forward-line 1))
             (beginning-of-line)
             (let (
                   (start-point (point)))
-              (setq limit-point
+	      (setq limit-point
                     (+
                      start-point
                      (skip-chars-forward sumibi-stop-chars (point-at-eol))))))
@@ -2065,9 +2061,9 @@ _ARG: (未使用)"
 
           ;; パラグラフ位置でストップする
           (if (< (+ (point) result) limit-point)
-              (-
-               limit-point
-               (point))
+	      (-
+	       limit-point
+	       (point))
             result))
 
       ;; auto-fill-modeが無効の時
@@ -2088,8 +2084,8 @@ _ARG: (未使用)"
         (let ((bol (save-excursion (beginning-of-line) (point))))
           (when (= limit-point bol)
             (let ((prefix (and (>= (point-at-eol) (+ bol 2))
-                               (buffer-substring-no-properties bol (+ bol 2)))))
-              (when (member prefix '("- " "* "))
+			       (buffer-substring-no-properties bol (+ bol 2)))))
+	      (when (member prefix '("- " "* "))
                 (setq limit-point (+ bol 2)))))
 
           ;; 行頭に連続する空白/タブがインデントとして存在するときもスキップ
@@ -2097,8 +2093,8 @@ _ARG: (未使用)"
             (let ((indent-len (save-excursion
                                 (goto-char bol)
                                 (skip-chars-forward " \t" (point-at-eol)))))
-              (sumibi-debug-print (format "indent-len = %d\n" indent-len))
-              (when (> indent-len 0)
+	      (sumibi-debug-print (format "indent-len = %d\n" indent-len))
+	      (when (> indent-len 0)
                 (setq limit-point (+ bol indent-len))
                 ;; --------------------------------------------------
                 ;; When the line begins with indentation followed by a
@@ -2111,8 +2107,8 @@ _ARG: (未使用)"
                 ;; items is preserved by the earlier branch that runs
                 ;; when `limit-point` equals `bol`.
                 (let* ((prefix-pos limit-point)
-                       (eol (point-at-eol))
-                       (prefix (and (>= eol (+ prefix-pos 2))
+		       (eol (point-at-eol))
+		       (prefix (and (>= eol (+ prefix-pos 2))
                                     (buffer-substring-no-properties prefix-pos (+ prefix-pos 2)))))
                   (when (member prefix '("- " "* "))
                     (setq limit-point (+ prefix-pos 2))))))))
@@ -2230,9 +2226,9 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
 
 (defvar sumibi-mode-line-string
   (propertize " [sumibi-switch-model] "
-              'help-echo "クリックして利用するGPTのモデルを切り替えることができます."
-              'mouse-face 'mode-line-highlight
-              'local-map (let ((map (make-sparse-keymap)))
+	      'help-echo "クリックして利用するGPTのモデルを切り替えることができます."
+	      'mouse-face 'mode-line-highlight
+	      'local-map (let ((map (make-sparse-keymap)))
                            (define-key map [mode-line mouse-1] 'sumibi-mode-line-function)
                            map)))
 
