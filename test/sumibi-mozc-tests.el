@@ -47,6 +47,9 @@
 ;; `sumibi.el` can be required from a standalone Emacs process.
 (add-to-list 'load-path (expand-file-name "../lisp" (file-name-directory (or load-file-name buffer-file-name))))
 
+;; Add test directory to load-path for mozc-mock
+(add-to-list 'load-path (file-name-directory (or load-file-name buffer-file-name)))
+
 ;; Sumibi depends on the external package `popup.el` for its interactive
 ;; completion UI.  The testing environment may not have this package
 ;; installed, and the Mozc conversion routine we are testing does not depend
@@ -72,35 +75,62 @@
 ;; Dash.el がインストールされている前提でテストを実行する。
 (require 'dash)
 
+;; Test helper functions for mozc mock
+(defvar sumibi-test-use-mozc-mock nil
+  "When non-nil, use mozc-mock instead of real mozc.")
+
+(defun sumibi-test-setup-mozc-mock ()
+  "Setup mozc mock for testing."
+  (require 'mozc-mock)
+  (mozc-mock-enable)
+  (mozc-mock-reset)
+  (setq sumibi--mozc-available-p t)
+  (setq sumibi-test-use-mozc-mock t))
+
+(defun sumibi-test-teardown-mozc-mock ()
+  "Teardown mozc mock after testing."
+  (when (featurep 'mozc-mock)
+    (mozc-mock-disable)
+    (mozc-mock-reset))
+  (setq sumibi-test-use-mozc-mock nil))
+
+;; Environment variable to force mock usage
+(when (getenv "SUMIBI_TEST_USE_MOCK")
+  (sumibi-test-setup-mozc-mock))
+
 ;; Now we can safely load Sumibi.
 (require 'sumibi)
 
 ;; Force the backend to Mozc for these tests.
 (setq sumibi-backend 'mozc)
 
+;; Test execution macro
+(defmacro sumibi-test-with-mozc (&rest body)
+  "Execute BODY with mozc or mozc-mock based on availability."
+  `(if (and (not sumibi--mozc-available-p) (not sumibi-test-use-mozc-mock))
+       (ert-skip "Mozc not available on this environment")
+     (progn ,@body)))
+
 ;; ------------------------------------------------------------------
 ;; Basic conversions (no prefix)
 ;; ------------------------------------------------------------------
 (ert-deftest sumibi-mozc-henkan ()
   "Converting 'henkan' should yield the Japanese string '変換'."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil))))
-      (should (string= result "変換")))))
+  (sumibi-test-with-mozc
+   (let ((result (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil))))
+     (should (string= result "変換")))))
 
 (ert-deftest sumibi-mozc-nihongo ()
   "Converting 'nihongo' should yield '日本語'."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongo" "" 1 nil))))
-      (should (string= result "日本語")))))
+  (sumibi-test-with-mozc
+   (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongo" "" 1 nil))))
+     (should (string= result "日本語")))))
 
 (ert-deftest sumibi-mozc-nihongoga-dekimasu ()
   "Converting multi-word input 'nihongoga dekimasu' should yield '日本語が出来ます'."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongoga dekimasu" "" 1 nil))))
-      (should (string= result "日本語が出来ます")))))
+  (sumibi-test-with-mozc
+   (let ((result (car (sumibi-roman-to-kanji-with-surrounding "nihongoga dekimasu" "" 1 nil))))
+     (should (string= result "日本語が出来ます")))))
 
 ;; ------------------------------------------------------------------
 ;; End-to-end helper & tests on *scratch* buffer
@@ -112,7 +142,7 @@
 Return trimmed resulting buffer string.  The Sumibi backend is forced to
 `mozc'.  The *scratch* buffer is cleared for each invocation so the call is
 idempotent and side-effect free for other tests."
-  (unless sumibi--mozc-available-p
+  (unless (or sumibi--mozc-available-p sumibi-test-use-mozc-mock)
     (error "Mozc not available"))
   (let ((sumibi-backend 'mozc))
     (with-current-buffer (get-buffer-create "*scratch*")
@@ -126,63 +156,103 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-scratch-koumoku-1 ()
   "'* koumoku' → '* 項目' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "* koumoku") "* 項目"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "* koumoku") "* 項目"))))
 
 (ert-deftest sumibi-mozc-scratch-koumoku-2 ()
   "'- koumoku' → '- 項目' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "- koumoku") "- 項目"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "- koumoku") "- 項目"))))
 
 (ert-deftest sumibi-mozc-scratch-heading-1 ()
   "'# midashi' → '# 見出し' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "# midashi") "# 見出し"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "# midashi") "# 見出し"))))
 
 (ert-deftest sumibi-mozc-scratch-indent-1 ()
   "' indento' → ' インデント' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch " indento") " インデント"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch " indento") " インデント"))))
 
 (ert-deftest sumibi-mozc-scratch-indent-2 ()
   "'  indento' → '  インデント' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "  indento") "  インデント"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "  indento") "  インデント"))))
 
 (ert-deftest sumibi-mozc-scratch-indent-3 ()
   "'   indento' → '   インデント' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "   indento") "   インデント"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "   indento") "   インデント"))))
 
 (ert-deftest sumibi-mozc-scratch-indent-koumoku-1 ()
   "'  - koumoku' → '  - 項目' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "  - koumoku") "  - 項目"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "  - koumoku") "  - 項目"))))
 
 (ert-deftest sumibi-mozc-scratch-indent-koumoku-2 ()
   "'  * koumoku' → '  * 項目' end-to-end conversion via C-j."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (should (string= (sumibi-test--convert-in-scratch "  * koumoku") "  * 項目"))))
+  (sumibi-test-with-mozc
+   (should (string= (sumibi-test--convert-in-scratch "  * koumoku") "  * 項目"))))
 
 ;; Candidate stabilization tests
 (ert-deftest sumibi-mozc-stable-candidates-basic ()
   "Test basic candidate stabilization functionality."
-  (if (not sumibi--mozc-available-p)
-      (ert-skip "Mozc not available on this environment")
-    (let ((sumibi-backend 'mozc))
-      ;; Test that candidate stabilization function exists and works
-      (let ((candidates '("変換" "変感" "返還"))
-            (result (sumibi-mozc--find-preferred-candidate "henkan" '("変換" "変感" "返還"))))
-        (should (listp result))
-        (should (= (length result) (length candidates)))))))
+  (sumibi-test-with-mozc
+   (let ((sumibi-backend 'mozc))
+     ;; Test that candidate stabilization function exists and works
+     (let ((candidates '("変換" "変感" "返還"))
+           (result (sumibi-mozc--find-preferred-candidate "henkan" '("変換" "変感" "返還"))))
+       (should (listp result))
+       (should (= (length result) (length candidates)))))))
+
+;; ------------------------------------------------------------------
+;; Mock-specific tests (only run when mock is enabled)
+;; ------------------------------------------------------------------
+
+(ert-deftest sumibi-mozc-mock-custom-conversion ()
+  "Test custom conversion added to mock."
+  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (sumibi-test-with-mozc
+   (mozc-mock-add-conversion "tesuto" '("テスト" "test" "てすと"))
+   (let ((result (car (sumibi-roman-to-kanji-with-surrounding "tesuto" "" 1 nil))))
+     (should (string= result "テスト")))))
+
+(ert-deftest sumibi-mozc-mock-learn-history ()
+  "Test that mock records learning history."
+  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (sumibi-test-with-mozc
+   (mozc-mock-reset)
+   ;; Simulate learning by calling the learn function
+   (sumibi--mozc-learn "henkan" "変換")
+   (let ((history (mozc-mock-get-learn-history)))
+     (should (= (length history) 1))
+     (should (string= (caar history) "henkan"))
+     (should (string= (cdar history) "変換")))))
+
+(ert-deftest sumibi-mozc-mock-unknown-input ()
+  "Test that mock handles unknown romaji input gracefully."
+  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (sumibi-test-with-mozc
+   (let ((result (car (sumibi-roman-to-kanji-with-surrounding "unknownword" "" 1 nil))))
+     ;; Should fall back to the original input
+     (should (string= result "unknownword")))))
+
+(ert-deftest sumibi-mozc-mock-multiple-candidates ()
+  "Test that mock returns multiple candidates."
+  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (sumibi-test-with-mozc
+   (let ((results (sumibi-roman-to-kanji-with-surrounding "henkan" "" 3 nil)))
+     (should (>= (length results) 2))
+     (should (string= (car results) "変換")))))
+
+(ert-deftest sumibi-mozc-mock-deterministic-output ()
+  "Test that mock produces deterministic output."
+  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (sumibi-test-with-mozc
+   (let ((result1 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil)))
+         (result2 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil))))
+     (should (string= result1 result2))
+     (should (string= result1 "変換")))))
 
 (provide 'sumibi-mozc-tests)
 
