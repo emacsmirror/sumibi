@@ -254,6 +254,72 @@ idempotent and side-effect free for other tests."
      (should (string= result1 result2))
      (should (string= result1 "変換")))))
 
+;; Tests for mozc history functionality
+(defvar sumibi-history-stack)
+
+(ert-deftest sumibi-history-test-ensure-directory ()
+  "Test directory creation."
+  (let ((test-dir "/tmp/sumibi-test"))
+    (when (file-directory-p test-dir)
+      (delete-directory test-dir t))
+    (should-not (file-directory-p test-dir))
+    (let ((sumibi-ensure-history-directory
+           (lambda () (make-directory test-dir t))))
+      (funcall sumibi-ensure-history-directory)
+      (should (file-directory-p test-dir))
+      (delete-directory test-dir t))))
+
+(ert-deftest sumibi-history-test-save-to-file ()
+  "Test saving history stack to file."
+  (let ((sumibi-history-stack 
+         '(((markers . (292 . 295))
+            (cand-cur . 3)
+            (cand-cur-backup . 3)
+            (cand-len . 5)
+            (last-fix . "日本語")
+            (last-roman . "nihongo")
+            (genbun . "nihongo")
+            (henkan-kouho-list ("日本語" "候補1" 0 l 0) ("にほんご" "候補2" 0 l 1) ("ニホンゴ" "候補3" 0 l 2) ("日本語" "候補4" 0 l 3) ("nihongo" "原文まま" 0 l 4))
+            (bufname . "*scratch*"))
+           ((markers . (274 . 275))
+            (cand-cur . 0)
+            (cand-cur-backup . 0)
+            (cand-len . 31)
+            (last-fix . "版")
+            (last-roman . "ban")
+            (genbun . "ban")
+            (henkan-kouho-list ("版" "候補1" 0 l 0) ("ばん" "候補2" 0 l 1) ("バン" "候補3" 0 l 2) ("番" "候補4" 0 l 3) ("晩" "候補5" 0 l 4))
+            (bufname . "*scratch*"))
+           ((markers . (271 . 274))
+            (cand-cur . 2)
+            (cand-cur-backup . 2)
+            (cand-len . 4)
+            (last-fix . "モックバン")
+            (last-roman . "mokkuban ")
+            (genbun . "mokkuban ")
+            (henkan-kouho-list ("模擬版" "候補1" 0 l 0) ("もっくばん" "候補2" 0 l 1) ("モックバン" "候補3" 0 l 2) ("mokkuban " "原文まま" 0 l 3))
+            (bufname . "*scratch*"))))
+        (test-file "/tmp/sumibi-test-history.jsonl"))
+    ;; テスト用ファイルを削除
+    (when (file-exists-p test-file)
+      (delete-file test-file))
+    (should-not (file-exists-p test-file))
+    ;; 直接ファイルに書き込んでテスト
+    (with-temp-buffer
+      (dolist (entry sumibi-history-stack)
+        (let ((json-entry (copy-alist entry)))
+          ;; markersのconsペアを配列に変換
+          (when (assoc 'markers json-entry)
+            (let ((markers (cdr (assoc 'markers json-entry))))
+              (setcdr (assoc 'markers json-entry) 
+                      (vector (car markers) (cdr markers)))))
+          (insert (json-encode json-entry) "\n")))
+      (write-region (point-min) (point-max) test-file nil 'silent))
+    (should (file-exists-p test-file))
+    ;; クリーンアップ
+    (when (file-exists-p test-file)
+      (delete-file test-file))))
+
 (provide 'sumibi-mozc-tests)
 
 ;;; sumibi-mozc-tests.el ends here

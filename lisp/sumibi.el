@@ -2269,6 +2269,39 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
 (set-language-info "Japanese" 'input-method "japanese-sumibi")
 
 
+;; 履歴保存機能 - ディレクトリとファイルの作成
+(defun sumibi-ensure-history-directory ()
+  "~/.sumibi ディレクトリを作成する（存在しない場合）."
+  (let ((dir (expand-file-name "~/.sumibi")))
+    (unless (file-directory-p dir)
+      (make-directory dir t))))
+
+
+(defun sumibi-save-history-to-file ()
+  "履歴を ~/.sumibi/history.jsonl に保存する."
+  (sumibi-ensure-history-directory)
+  (when sumibi-history-stack
+    (let ((file-path (expand-file-name "~/.sumibi/history.jsonl")))
+      (with-temp-buffer
+        (dolist (entry sumibi-history-stack)
+          (let ((json-entry (copy-alist entry)))
+            ;; markerオブジェクトまたはconsペアを配列に変換
+            (when (assoc 'markers json-entry)
+              (let ((markers (cdr (assoc 'markers json-entry))))
+                (when (and markers (consp markers))
+                  (if (and (markerp (car markers)) (markerp (cdr markers)))
+                      ;; markerオブジェクトの場合は位置を取得
+                      (setcdr (assoc 'markers json-entry) 
+                              (vector (marker-position (car markers))
+                                      (marker-position (cdr markers))))
+                    ;; 既に数値のconsペアの場合はそのまま配列に変換
+                    (setcdr (assoc 'markers json-entry) 
+                            (vector (car markers) (cdr markers)))))))
+            (insert (json-encode json-entry) "\n")))
+        (write-region (point-min) (point-max) file-path t 'silent))
+      (sumibi-debug-print (format "Saved %d history entries to %s\n" 
+                                  (length sumibi-history-stack) file-path)))))
+
 (defconst sumibi-version
   "3.3.0" ;;SUMIBI-VERSION
   )
@@ -2277,6 +2310,9 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
 引数_ARG: 未使用"
   (interactive "P")
   (message sumibi-version))
+
+;; Emacs終了時のフック設定
+(add-hook 'kill-emacs-hook 'sumibi-save-history-to-file)
 
 (provide 'sumibi)
 
