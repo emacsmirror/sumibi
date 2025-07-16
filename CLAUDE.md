@@ -38,6 +38,11 @@ agent-lisp-paren-aid-linux lisp/sumibi.el
 
 **重要**: LLMはLisp括弧を数えるのが苦手なため、自分で数えたり考えたりせず、必ずこのツールを使うようにしてください。
 
+### GitHub連携
+
+ghコマンドはインストールされていませんので、issueの内容を確認する時は、以下のようなURLを直接開いてください。
+https://github.com/kiyoka/Sumibi/issues/53
+
 ## アーキテクチャ
 
 ### ディレクトリ構造
