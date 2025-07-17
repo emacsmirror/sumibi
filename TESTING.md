@@ -4,16 +4,16 @@
 
 ## テストの実行方法
 
-### 基本的なテスト実行
+### 基本的なテスト実行（モック版、推奨）
 ```bash
-# 全てのテストを実行
+# モック版でテスト実行（デフォルト、100%再現性）
 make test
 ```
 
-### モック版テスト（推奨）
+### 実際のMozc環境でのテスト
 ```bash
-# モック版でテスト実行（100%再現性）
-SUMIBI_TEST_USE_MOCK=1 make test
+# 本物のmozc_serverでテスト実行
+SUMIBI_TEST_USE_MOCK=0 make test
 ```
 
 ### 個別テスト実行
@@ -28,19 +28,19 @@ emacs -batch -Q \
 
 ## テスト環境の種類
 
-### 1. 実際のMozc環境
-- **条件**: システムにmozc.elがインストールされている
-- **特徴**: 実際のmozc_serverと通信
-- **用途**: 実際の環境での動作確認
-
-### 2. モック環境（推奨）
-- **条件**: 環境変数 `SUMIBI_TEST_USE_MOCK=1` を設定
+### 1. モック環境（デフォルト、推奨）
+- **条件**: デフォルト動作（`make test`）
 - **特徴**: 
   - 100%再現性のある結果
   - mozc_serverへの接続なし
   - 高速実行
   - CI環境対応
 - **用途**: 継続的インテグレーション、開発中のテスト
+
+### 2. 実際のMozc環境
+- **条件**: 環境変数 `SUMIBI_TEST_USE_MOCK=0` を設定
+- **特徴**: 実際のmozc_serverと通信
+- **用途**: 実際の環境での動作確認
 
 ### 3. Mozcなし環境
 - **条件**: mozc.elがインストールされていない
@@ -110,11 +110,11 @@ agent-lisp-paren-aid-linux test/sumibi-mozc-tests.el
 
 #### 2. モックが動作しない
 ```bash
-# 環境変数が設定されているか確認
-echo $SUMIBI_TEST_USE_MOCK
+# デフォルトでモック版が動作するはず
+make test
 
-# 正しく設定
-export SUMIBI_TEST_USE_MOCK=1
+# 実際のMozcを使用したい場合
+export SUMIBI_TEST_USE_MOCK=0
 make test
 ```
 
@@ -135,27 +135,30 @@ emacs -batch -Q \
 ### 実行時間の測定
 ```bash
 # 時間測定付きでテスト実行
-time make test
-time SUMIBI_TEST_USE_MOCK=1 make test
+time make test                    # モック版（デフォルト）
+time SUMIBI_TEST_USE_MOCK=0 make test  # 実際のMozc版
 ```
 
 ### ベンチマーク比較
+- **モック版（デフォルト）**: 平均 0.5-1秒
 - **実際のMozc**: 平均 2-3秒
-- **モック版**: 平均 0.5-1秒
 - **スキップ版**: 平均 0.1-0.2秒
 
 ## CI/CD での使用
 
 ### GitHub Actions での例
 ```yaml
-- name: Run tests with mock
+- name: Run tests with mock (default)
+  run: make test
+
+- name: Run tests with real mozc (optional)
   run: |
-    export SUMIBI_TEST_USE_MOCK=1
+    export SUMIBI_TEST_USE_MOCK=0
     make test
 ```
 
 ### 推奨事項
-1. CI環境では常にモック版を使用
+1. CI環境ではデフォルトのモック版を使用
 2. 定期的に実際のMozc版でもテスト実行
 3. テスト結果の再現性を重視
 
