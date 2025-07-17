@@ -79,3 +79,16 @@ agent-lisp-paren-aid-linux lisp/sumibi.el
 もし不整合が検出されたら他の編集作業はせず、一旦指摘された行番号に括弧を補う修正のみを行って、
 再度 agent-lisp-paren-aid-linux を実行するようにしてください。
 LLMはLisp括弧を数えるのが苦手なため、自分で数えたり考えたりせず、必ずこのツールを使うようにしてください。
+
+## 外部ライブラリ
+
+もし、ちょっとした手元のテストコードで以下のライブラリを読み込みたくなった場合は、 ~/.emacs.d/elpa/ から検索してパスを追加してください
+
+(require 'cl-lib)
+(require 'popup)
+(require 'url)
+(require 'url-http)
+(require 'unicode-escape)
+(require 'deferred)
+(require 'sumibi-localdic)
+
