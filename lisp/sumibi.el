@@ -60,55 +60,37 @@
 
 If mozc.el is unavailable, or Mozc raises any error, a list containing
 ROMAN itself is returned so that callers can safely fall back."
-  (sumibi-debug-print (format "sumibi-mozc--candidate-list called: roman='%s' arg-n=%s mozc-available=%s\n" 
-                              roman arg-n sumibi--mozc-available-p))
   (if (not sumibi--mozc-available-p)
-      (progn
-        (sumibi-debug-print (format "sumibi-mozc--candidate-list: mozc not available, returning roman='%s'\n" roman))
-        (list roman))
+      (list roman)
     (setq roman (downcase roman))
-    (sumibi-debug-print (format "sumibi-mozc--candidate-list: processing roman='%s'\n" roman))
     (condition-case _err
         (if (string-match-p "[ \t]" roman)
             ;; 空白で分割 → 各セグメントを再帰的に1件だけ変換 → つなげて返す
             (progn
-              (sumibi-debug-print (format "sumibi-mozc--candidate-list: found spaces in roman, splitting '%s'\n" roman))
               (let* ((split-words (split-string roman "[ \t]+" t))
                      (joined (apply #'concat
                                     (mapcar (lambda (w)
-                                              (sumibi-debug-print (format "sumibi-mozc--candidate-list: processing segment '%s'\n" w))
                                               (car (sumibi-mozc--candidate-list w 1)))
                                             split-words))))
-                (sumibi-debug-print (format "sumibi-mozc--candidate-list: joined result '%s'\n" joined))
                 (list (propertize joined 'sumibi-mozc-candidate t))))
           ;; セグメント1件のときは従来ロジック
           (progn
-            (sumibi-debug-print (format "sumibi-mozc--candidate-list: single segment conversion for '%s'\n" roman))
-            (sumibi-debug-print (format "sumibi-mozc--candidate-list: creating mozc session\n"))
             (mozc-session-create t)
-            (sumibi-debug-print (format "sumibi-mozc--candidate-list: sending keys\n"))
             (dolist (ch (string-to-list roman))
               (mozc-session-sendkey (list ch)))
 	    
             (let* ((iteration 0) resp cands)
-              (sumibi-debug-print (format "sumibi-mozc--candidate-list: starting iteration loop\n"))
               (while (and (< iteration 3)
                           (progn
-                            (sumibi-debug-print (format "sumibi-mozc--candidate-list: iteration %d, sending space\n" iteration))
                             (setq resp (mozc-session-sendkey '(space)))
-                            (sumibi-debug-print (format "sumibi-mozc--candidate-list: resp=%s\n" resp))
                             (setq cands (and resp (mozc-protobuf-get resp 'candidates)))
-                            (sumibi-debug-print (format "sumibi-mozc--candidate-list: cands=%s\n" (if cands "found" "null")))
                             (null cands)))
                 (setq iteration (1+ iteration)))
 	      
-	      (sumibi-debug-print (format "sumibi-mozc--candidate-list cands=%s\n" cands))
               (if (not cands)
                   (progn
-                    (sumibi-debug-print (format "sumibi-mozc--candidate-list: no candidates found, returning roman='%s'\n" roman))
                     (list roman))
                 (progn
-                  (sumibi-debug-print (format "sumibi-mozc--candidate-list: processing candidates\n"))
                   (let* ((cand-list (mozc-protobuf-get cands 'candidate))
                          ;; 候補の文字列リスト
                          (values   (mapcar (lambda (cand)
@@ -120,40 +102,25 @@ ROMAN itself is returned so that callers can safely fall back."
                          (kata      anno-desc)
                          ;; ひらがなに変換
                          (hira      (and kata (sumibi-katakana-to-hiragana kata))))
-                    (sumibi-debug-print (format "sumibi-mozc--candidate-list: values=%s hira=%s kata=%s\n" values hira kata))
                     ;; 候補 + ひらがな読み + カタカナ読み
                     (let* ((lst (append values (delq nil (list hira kata))))
                            ;; 履歴を考慮して候補順序を調整
                            (reordered (sumibi-mozc--find-preferred-candidate roman lst)))
-                      (sumibi-debug-print (format "sumibi-mozc--candidate-list: final candidates=%s\n" reordered))
                       ;; 各候補に origin プロパティを付与して返す - type check debug
-                      (sumibi-debug-print (format "sumibi-mozc--candidate-list: checking candidate types\n"))
-                      (dolist (cand reordered)
-                        (sumibi-debug-print (format "sumibi-mozc--candidate-list: candidate='%s' type=%s stringp=%s\n" 
-                                                    cand (type-of cand) (stringp cand))))
                       (mapcar (lambda (s) 
                                 (if (stringp s)
                                     (propertize s 'sumibi-mozc-candidate t)
                                   (progn
-                                    (sumibi-debug-print (format "sumibi-mozc--candidate-list: ERROR - non-string candidate: %s (type: %s)\n" s (type-of s)))
                                     (propertize (format "%s" s) 'sumibi-mozc-candidate t))))
                               reordered))))))))
       ;; error path ----------------------------------------------------
       (error
-       (sumibi-debug-print (format "sumibi-mozc--candidate-list:error for roman='%s'\n" roman))
-       (sumibi-debug-print (format "sumibi-mozc--candidate-list:error details: %s\n" _err))
-       (sumibi-debug-print (format "sumibi-mozc--candidate-list:mozc-available=%s\n" sumibi--mozc-available-p))
        (list roman)))))
 
 (defun sumibi-mozc--find-preferred-candidate (roman candidates)
   "履歴からROMANに対応する過去の選択候補を探し、その候補を先頭に並び替える（genbunキーで検索）."
-  (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: input roman='%s' candidates=%s\n" roman candidates))
-  (dolist (cand candidates)
-    (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: input candidate='%s' type=%s stringp=%s\n" 
-                                cand (type-of cand) (stringp cand))))
   (if (not sumibi-history-stack)
       (progn
-        (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history stack, returning original candidates\n"))
         candidates)
     (let ((preferred-candidate nil))
       ;; 履歴から同じ原文入力の記録を探す
@@ -168,32 +135,21 @@ ROMAN itself is returned so that callers can safely fall back."
                            (>= cand-cur 0)
                            (< cand-cur (length kouho-list)))
                   (let ((raw-candidate (car (nth cand-cur kouho-list))))
-                    (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: raw candidate from history=%s type=%s\n" 
-                                                raw-candidate (type-of raw-candidate)))
                     ;; 文字列であることを確認し、そうでなければ文字列に変換
                     (setq preferred-candidate (if (stringp raw-candidate)
                                                   raw-candidate
-                                                (format "%s" raw-candidate)))
-                    (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: processed candidate=%s type=%s\n" 
-                                                preferred-candidate (type-of preferred-candidate))))))))))
+                                                (format "%s" raw-candidate))))))))))
       
       ;; 見つかった場合は、その候補を先頭に移動
       (if preferred-candidate
           (progn
-            (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: found preferred=%s (type=%s) for genbun=%s\n" 
-					preferred-candidate (type-of preferred-candidate) roman))
             ;; 候補リストから該当候補を削除して先頭に追加
             (let ((filtered (remove preferred-candidate candidates))
                   (result))
               (setq result (cons preferred-candidate filtered))
-              (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: returning reordered=%s\n" result))
-              (dolist (cand result)
-                (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: output candidate='%s' type=%s stringp=%s\n" 
-                                            cand (type-of cand) (stringp cand))))
               result))
         ;; 見つからない場合は元の順序のまま
         (progn
-          (sumibi-debug-print (format "sumibi-mozc--find-preferred-candidate: no history found for genbun=%s\n" roman))
           candidates)))))
 
 ;;; 
@@ -259,7 +215,6 @@ workflow."
              (not (string-match-p "[ \t]" roman))) ; single segment only
     (condition-case err
         (progn
-	  (sumibi-debug-print (format "sumibi--mozc-learn:roman[%s]\n" roman))
           ;; start isolated session
           (mozc-session-create t)
 
@@ -276,8 +231,6 @@ workflow."
                           (setq cands (and resp (mozc-protobuf-get resp 'candidates)))
                           (null cands)))
               (setq iteration (1+ iteration)))
-
-            (sumibi-debug-print (format "sumibi--mozc-learn:cands[%S]\n" cands))
 
             (let* ((cand-list (and cands (mozc-protobuf-get cands 'candidate)))
                    (values    (and cand-list
@@ -301,7 +254,7 @@ workflow."
           (when (fboundp 'mozc-session-delete)
             (mozc-session-delete)))
       (error
-       (sumibi-debug-print (format "sumibi--mozc-learn:error %s\n" err))))))
+       err))))
 
 ;; --------------------------------------------------------------
 ;; Backend selection for roman→kanji conversion.
@@ -1862,50 +1815,40 @@ _ARG: (未使用)"
 
 (defun sumibi-history-gc ()
   "変数sumibi-history-stack中の無効なマークを持つエントリを削除する."
-  (sumibi-debug-print (format "sumibi-history-gc before len=%d\n" (length sumibi-history-stack)))
-
   (let ((temp-list '()))
     (mapc
      (lambda (alist)
        (let ((markers  (sumibi-assoc-ref 'markers  alist nil)))
-         (sumibi-debug-print (format "markers=%S\n" markers))
-         ;; markersがnilまたは無効な場合の安全チェック
-         (if (and markers 
+	 ;; markersがnilまたは無効な場合の安全チェック
+	 (if (and markers 
                   (consp markers) 
                   (markerp (car markers)) 
                   (markerp (cdr markers)))
              (progn
-               (sumibi-debug-print (format "marker-position car=%S\n" (marker-position (car markers))))
-               (sumibi-debug-print (format "marker-position cdr=%S\n" (marker-position (cdr markers))))
-               (if (and (marker-position (car markers))     ;; 存在するバッファを指しているか
-                        (marker-position (cdr markers)))
+               (if (and (marker-position (car markers)) ;; 存在するバッファを指しているか
+			(marker-position (cdr markers)))
                    (if (= (marker-position (car markers))
                           (marker-position (cdr markers)))
-	             ;; マークの開始と終了が同じ位置を指している場合は、
-	             ;; そのマークは既に無効(選択モードの再表示で一旦マーク周辺の文字列が削除された)
-	             (progn
-                       (set-marker (car markers) nil)
-                       (set-marker (cdr markers) nil))
+	               ;; マークの開始と終了が同じ位置を指している場合は、
+	               ;; そのマークは既に無効(選択モードの再表示で一旦マーク周辺の文字列が削除された)
+	               (progn
+			 (set-marker (car markers) nil)
+			 (set-marker (cdr markers) nil))
                      (push alist temp-list))))
            ;; markersがnilまたは無効な場合のハンドリング
            (progn
-             (sumibi-debug-print (format "Invalid or nil markers found: %S\n" markers))
              ;; markersがnilの場合でも、他のデータが有効であれば履歴として保持
              (push alist temp-list)))))
      sumibi-history-stack)
-
-    (sumibi-debug-print (format "sumibi-history-gc temp-list  len=%d\n" (length temp-list)))
 
     ;; temp-list から limit 件数だけコピーする
     (setq sumibi-history-stack '())
     (mapc
      (lambda (alist)
        (when (< (length sumibi-history-stack)
-                sumibi-history-stack-limit)
-         (push alist sumibi-history-stack)))
-     (reverse temp-list)))
-  (sumibi-debug-print (format "sumibi-history-gc after  len=%d\n" (length sumibi-history-stack))))
-
+		sumibi-history-stack-limit)
+	 (push alist sumibi-history-stack)))
+     (reverse temp-list))))
 
 (defun sumibi-history-search (_point load-flag)
   "確定ヒストリから、指定_POINTに変換済の単語が埋まっているかどうか調べる.
@@ -1920,8 +1863,8 @@ _ARG: (未使用)"
        (let* ((markers  (sumibi-assoc-ref 'markers  alist nil))
 	      (last-fix (sumibi-assoc-ref 'last-fix alist ""))
 	      (bufname  (sumibi-assoc-ref 'bufname alist "")))
-         ;; markersがnilまたは無効な場合はスキップ
-         (when (and markers 
+	 ;; markersがnilまたは無効な場合はスキップ
+	 (when (and markers 
                     (consp markers) 
                     (markerp (car markers)) 
                     (markerp (cdr markers))
@@ -1929,42 +1872,31 @@ _ARG: (未使用)"
            (let* ((end      (marker-position (cdr markers)))
 	          (start    (- end (length last-fix)))
 	          (pickup   (if (string-equal bufname (buffer-name))
-                                (buffer-substring start end)
-                              "")))
-             (sumibi-debug-print (format "sumibi-history-search  bufname:   [%s]\n"   bufname))
-             (sumibi-debug-print (format "sumibi-history-search  (point):   %d\n"     (point)))
-             (sumibi-debug-print (format "sumibi-history-search    range:   %d-%d\n"  start end))
-             (sumibi-debug-print (format "sumibi-history-search last-fix:   [%s]\n"   last-fix))
-             (sumibi-debug-print (format "sumibi-history-search   pickup:   [%s]\n"   pickup))
+				(buffer-substring start end)
+			      "")))
              (when (and
                     (string-equal bufname (buffer-name))
                     (<  start   (point))
                     (<= (point) end)
                     (string-equal last-fix pickup))
-               (setq found t)
-               (when load-flag
-                 ;; markersがnilでない場合のみmarkersを更新
-                 (when (and (not (null markers))
+	       (setq found t)
+	       (when load-flag
+		 ;; markersがnilでない場合のみmarkersを更新
+		 (when (and (not (null markers))
                             (markerp (car markers))
                             (markerp (cdr markers)))
                    (setq sumibi-markers            (cons
 					            (move-marker (car markers) start)
 					            (cdr markers))))
-                 ;; その他の変数は常に更新
-                 (setq sumibi-cand-cur           (sumibi-assoc-ref 'cand-cur alist           nil))
-                 (setq sumibi-cand-cur-backup    (sumibi-assoc-ref 'cand-cur-backup alist    nil))
-                 (setq sumibi-cand-len           (sumibi-assoc-ref 'cand-len alist           nil))
-                 (setq sumibi-last-fix           pickup)
-                 (setq sumibi-genbun             (sumibi-assoc-ref 'genbun alist             nil))
-                 (setq sumibi-henkan-kouho-list  (sumibi-assoc-ref 'henkan-kouho-list alist  nil))
+		 ;; その他の変数は常に更新
+		 (setq sumibi-cand-cur           (sumibi-assoc-ref 'cand-cur alist           nil))
+		 (setq sumibi-cand-cur-backup    (sumibi-assoc-ref 'cand-cur-backup alist    nil))
+		 (setq sumibi-cand-len           (sumibi-assoc-ref 'cand-len alist           nil))
+		 (setq sumibi-last-fix           pickup)
+		 (setq sumibi-genbun             (sumibi-assoc-ref 'genbun alist             nil))
+		 (setq sumibi-henkan-kouho-list  (sumibi-assoc-ref 'henkan-kouho-list alist  nil))
 
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-markers         : %S\n" sumibi-markers))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-cand-cur        : %S\n" sumibi-cand-cur))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-cand-cur-backup : %S\n" sumibi-cand-cur-backup))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-cand-len %S\n" sumibi-cand-len))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-last-fix %S\n" sumibi-last-fix))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-genbun %S\n" sumibi-genbun))
-                 (sumibi-debug-print (format "sumibi-history-search : sumibi-henkan-kouho-list %S\n" sumibi-henkan-kouho-list))))))))
+		 ))))))
      sumibi-history-stack)
     found))
 
@@ -2004,10 +1936,7 @@ _ARG: (未使用)"
              (> (length sumibi-last-roman) 0)
              (stringp sumibi-last-fix)
              (> (length sumibi-last-fix) 0))
-    (sumibi-debug-print (format "sumibi-history-push: mozc learn roman=%S fix=%S\n"
-				sumibi-last-roman sumibi-last-fix))
     (sumibi--mozc-learn sumibi-last-roman sumibi-last-fix))
-  (sumibi-debug-print (format "sumibi-history-push result: %S\n" sumibi-history-stack))
   (sumibi-debug-save-dashboard))
 
 
@@ -2404,7 +2333,6 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
                         (setq sumibi-history-stack (append sumibi-history-stack (list converted-entry)))
                         (setq success-count (1+ success-count))))
                   (error
-                   (sumibi-debug-print (format "Error parsing history line: %s" err))
                    (setq error-count (1+ error-count)))))
               (forward-line 1))))
         (sumibi-debug-print (format "Loaded history from %s: %d success, %d error\n" 
