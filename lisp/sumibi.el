@@ -1578,7 +1578,6 @@ Argument SELECT-MODE：選択状態"
           (progn
             (insert insert-word)
             (sumibi--ensure-space-after-heading (marker-position start))
-            (message "[%s] candidate (%d/%d)" insert-word (+ sumibi-cand-cur 1) sumibi-cand-len)
             (let* ((end         (point-marker))
                    (ov          (make-overlay start end)))
 	      
