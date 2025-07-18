@@ -2381,32 +2381,8 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
 
 (provide 'sumibi)
 
-
-(when nil
-  ;; unti test
-  (sumibi-henkan-request "watashi no namae ha nakano desu ." nil (lambda ()))
-  (sumibi-henkan-request "2kome no bunsyou desu ." nil (lambda ())))
-
-(when nil
-  ;; unit test
-  (sumibi-henkan-request "読みがな" nil t))
-
-(when nil
-  ;; unit test
-  (sumibi-henkan-request "私の名前は中野です。" t t))
-
-
 ;; Local Variables:
 ;; coding: utf-8
 ;; End:
-
-(when nil
-  ;; unit test for tab character escaping
-  (let ((test-string "hello	world")
-        (expected-string "hello\\tworld") ; In Lisp, this is "hello\tworld"
-        (actual-string (sumibi-escape-for-json "hello	world")))
-    (if (string= actual-string expected-string)
-        (message "Tab escape test passed: %s" actual-string)
-      (message "Tab escape test FAILED. Expected: %s, Got: %s" expected-string actual-string))))
 
 ;;; sumibi.el ends here
