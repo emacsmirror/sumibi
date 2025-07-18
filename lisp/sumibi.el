@@ -533,10 +533,14 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
           (insert string)))))
 
 (defun sumibi-debug-save-dashboard ()
-  "デバッグ情報を~/.emacs.d/sumibi-debug-dashboard.htmlに保存する."
+  "デバッグ情報を~/.sumibi/sumibi-debug-dashboard.htmlに保存する."
   (interactive)
   (when sumibi-debug  
-    (let ((filename (expand-file-name "~/.emacs.d/sumibi-debug-dashboard.html")))
+    (let ((filename (expand-file-name "~/.sumibi/sumibi-debug-dashboard.html")))
+      ;; ディレクトリが存在しない場合は作成
+      (let ((dir (file-name-directory filename)))
+        (unless (file-directory-p dir)
+          (make-directory dir t)))
       (with-temp-buffer
 	(insert "<!DOCTYPE html>\n")
 	(insert "<html>\n")
