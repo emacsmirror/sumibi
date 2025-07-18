@@ -94,8 +94,9 @@
     (mozc-mock-reset))
   (setq sumibi-test-use-mozc-mock nil))
 
-;; Environment variable to force mock usage
-(when (getenv "SUMIBI_TEST_USE_MOCK")
+;; Environment variable or variable to force mock usage
+(when (or (getenv "SUMIBI_TEST_USE_MOCK")
+          (and (boundp 'sumibi-test-use-mozc-mock) sumibi-test-use-mozc-mock))
   (sumibi-test-setup-mozc-mock))
 
 ;; Now we can safely load Sumibi.
@@ -214,7 +215,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-custom-conversion ()
   "Test custom conversion added to mock."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (mozc-mock-add-conversion "tesuto" '("テスト" "test" "てすと"))
    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "tesuto" "" 1 nil))))
@@ -222,7 +223,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-learn-history ()
   "Test that mock records learning history."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (mozc-mock-reset)
    ;; Simulate learning by calling the learn function
@@ -234,7 +235,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-unknown-input ()
   "Test that mock handles unknown romaji input gracefully."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "unknownword" "" 1 nil))))
      ;; Should fall back to the original input
@@ -242,7 +243,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-multiple-candidates ()
   "Test that mock returns multiple candidates."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((results (sumibi-roman-to-kanji-with-surrounding "henkan" "" 3 nil)))
      (should (>= (length results) 2))
@@ -250,7 +251,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-deterministic-output ()
   "Test that mock produces deterministic output."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((result1 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil)))
          (result2 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil))))
@@ -316,11 +317,11 @@ idempotent and side-effect free for other tests."
       (sumibi-save-history-to-file))
     (should (file-exists-p test-file))
     
-    ;; ファイル内容を確認（markersがnullになっているか）
+    ;; ファイル内容を確認（markersが配列として保存されているか）
     (with-temp-buffer
       (insert-file-contents test-file)
       (let ((content (buffer-string)))
-        (should (string-match-p "\"markers\":null" content))))
+        (should (string-match-p "\"markers\":\\[292,295\\]" content))))
     ;; クリーンアップ
     (when (file-exists-p test-file)
       (if (file-directory-p test-file)
