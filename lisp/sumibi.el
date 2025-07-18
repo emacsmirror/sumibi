@@ -1916,18 +1916,25 @@ _ARG: (未使用)"
   ;; アルファベットのみの確定結果はスキップ
   (if (sumibi-string-ascii-only-p sumibi-last-fix)
       (sumibi-debug-print (format "sumibi-history-push: skipping ASCII-only result: %S\n" sumibi-last-fix))
-    (push
-     `(
-       (markers            . ,sumibi-markers            )
-       (cand-cur           . ,sumibi-cand-cur           )
-       (cand-cur-backup    . ,sumibi-cand-cur-backup    )
-       (cand-len           . ,sumibi-cand-len           )
-       (last-fix           . ,sumibi-last-fix           )
-       (last-roman         . ,sumibi-last-roman         )
-       (genbun             . ,sumibi-genbun             )
-       (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
-       (bufname            . ,(buffer-name)))
-     sumibi-history-stack))
+    (progn
+      (push
+       `(
+         (markers            . ,sumibi-markers            )
+         (cand-cur           . ,sumibi-cand-cur           )
+         (cand-cur-backup    . ,sumibi-cand-cur-backup    )
+         (cand-len           . ,sumibi-cand-len           )
+         (last-fix           . ,sumibi-last-fix           )
+         (last-roman         . ,sumibi-last-roman         )
+         (genbun             . ,sumibi-genbun             )
+         (henkan-kouho-list  . ,sumibi-henkan-kouho-list  )
+         (bufname            . ,(buffer-name)))
+       sumibi-history-stack)
+      ;; 履歴スタックのサイズを制限
+      (when (> (length sumibi-history-stack) sumibi-history-stack-limit)
+        (setq sumibi-history-stack
+              (seq-take sumibi-history-stack sumibi-history-stack-limit))
+        (sumibi-debug-print (format "sumibi-history-push: trimmed stack to %d entries\n"
+                                    sumibi-history-stack-limit)))))
   ;; --------------------------------------------------------------
   ;; Mozc learning (optional)
   ;; --------------------------------------------------------------
@@ -2338,17 +2345,32 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
                   (error
                    (setq error-count (1+ error-count)))))
               (forward-line 1))))
-        (sumibi-debug-print (format "Loaded history from %s: %d success, %d error\n" 
-                                    file-path success-count error-count))
+        ;; 履歴スタックのサイズを制限
+        (when (> (length sumibi-history-stack) sumibi-history-stack-limit)
+          (let ((old-length (length sumibi-history-stack)))
+            ;; 最新のsumibi-history-stack-limit件のみを保持（リストの末尾から取る）
+            (setq sumibi-history-stack 
+                  (nthcdr (- (length sumibi-history-stack) sumibi-history-stack-limit)
+                          sumibi-history-stack))
+            (sumibi-debug-print (format "Trimmed history stack from %d to %d entries\n"
+                                        old-length (length sumibi-history-stack)))))
+        (sumibi-debug-print (format "Loaded history from %s: %d success, %d error, %d in stack\n" 
+                                    file-path success-count error-count
+                                    (length sumibi-history-stack)))
         (list success-count error-count)))))
 
 (defun sumibi-save-history-to-file ()
   "履歴をファイルに保存する."
   (sumibi-ensure-history-directory)
   (when sumibi-history-stack
-    (let ((file-path (expand-file-name sumibi-history-file-path)))
+    (let ((file-path (expand-file-name sumibi-history-file-path))
+          ;; 最新のsumibi-history-stack-limit件のみを保存
+          (entries-to-save (if (> (length sumibi-history-stack) sumibi-history-stack-limit)
+                               (nthcdr (- (length sumibi-history-stack) sumibi-history-stack-limit)
+                                       sumibi-history-stack)
+                             sumibi-history-stack)))
       (with-temp-buffer
-        (dolist (entry sumibi-history-stack)
+        (dolist (entry entries-to-save)
           (let ((json-entry (copy-alist entry)))
             ;; markerオブジェクトまたはconsペアを配列に変換
             (when (assoc 'markers json-entry)
@@ -2364,8 +2386,9 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
                             (vector (car markers) (cdr markers)))))))
             (insert (json-encode json-entry) "\n")))
         (write-region (point-min) (point-max) file-path t 'silent))
-      (sumibi-debug-print (format "Saved %d history entries to %s\n" 
-                                  (length sumibi-history-stack) file-path)))))
+      (sumibi-debug-print (format "Saved %d history entries to %s (from total %d)\n" 
+                                  (length entries-to-save) file-path
+                                  (length sumibi-history-stack))))))
 
 (defconst sumibi-version
   "3.3.0" ;;SUMIBI-VERSION
