@@ -2314,6 +2314,8 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
   "履歴ファイルから履歴を読み込む."
   (let ((file-path (expand-file-name sumibi-history-file-path)))
     (when (file-exists-p file-path)
+      ;; 履歴を読み込む前に既存のスタックをクリア
+      (setq sumibi-history-stack '())
       (let ((success-count 0)
             (error-count 0))
         (with-temp-buffer
@@ -2363,14 +2365,15 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
   "履歴をファイルに保存する."
   (sumibi-ensure-history-directory)
   (when sumibi-history-stack
-    (let ((file-path (expand-file-name sumibi-history-file-path))
-          ;; 最新のsumibi-history-stack-limit件のみを保存
-          (entries-to-save (if (> (length sumibi-history-stack) sumibi-history-stack-limit)
-                               (nthcdr (- (length sumibi-history-stack) sumibi-history-stack-limit)
-                                       sumibi-history-stack)
-                             sumibi-history-stack)))
+    ;; 保存前にsumibi-history-stackを制限
+    (when (> (length sumibi-history-stack) sumibi-history-stack-limit)
+      (setq sumibi-history-stack
+            (seq-take sumibi-history-stack sumibi-history-stack-limit))
+      (sumibi-debug-print (format "sumibi-save-history-to-file: trimmed stack to %d entries\n"
+                                  sumibi-history-stack-limit)))
+    (let ((file-path (expand-file-name sumibi-history-file-path)))
       (with-temp-buffer
-        (dolist (entry entries-to-save)
+        (dolist (entry sumibi-history-stack)
           (let ((json-entry (copy-alist entry)))
             ;; markerオブジェクトまたはconsペアを配列に変換
             (when (assoc 'markers json-entry)
@@ -2385,10 +2388,9 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
                     (setcdr (assoc 'markers json-entry) 
                             (vector (car markers) (cdr markers)))))))
             (insert (json-encode json-entry) "\n")))
-        (write-region (point-min) (point-max) file-path t 'silent))
-      (sumibi-debug-print (format "Saved %d history entries to %s (from total %d)\n" 
-                                  (length entries-to-save) file-path
-                                  (length sumibi-history-stack))))))
+        (write-region (point-min) (point-max) file-path nil 'silent))
+      (sumibi-debug-print (format "Saved %d history entries to %s\n" 
+                                  (length sumibi-history-stack) file-path)))))
 
 (defconst sumibi-version
   "3.3.0" ;;SUMIBI-VERSION
