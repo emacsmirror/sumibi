@@ -94,12 +94,16 @@
     (mozc-mock-reset))
   (setq sumibi-test-use-mozc-mock nil))
 
-;; Environment variable to force mock usage
-(when (getenv "SUMIBI_TEST_USE_MOCK")
+;; Environment variable or variable to force mock usage
+(when (or (getenv "SUMIBI_TEST_USE_MOCK")
+          (and (boundp 'sumibi-test-use-mozc-mock) sumibi-test-use-mozc-mock))
   (sumibi-test-setup-mozc-mock))
 
 ;; Now we can safely load Sumibi.
 (require 'sumibi)
+
+;; Configure to use temporary directory for history file during tests
+(setq sumibi-history-file-path "/tmp/.sumibi/history.jsonl")
 
 ;; Force the backend to Mozc for these tests.
 (setq sumibi-backend 'mozc)
@@ -211,7 +215,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-custom-conversion ()
   "Test custom conversion added to mock."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (mozc-mock-add-conversion "tesuto" '("テスト" "test" "てすと"))
    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "tesuto" "" 1 nil))))
@@ -219,7 +223,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-learn-history ()
   "Test that mock records learning history."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (mozc-mock-reset)
    ;; Simulate learning by calling the learn function
@@ -231,7 +235,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-unknown-input ()
   "Test that mock handles unknown romaji input gracefully."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((result (car (sumibi-roman-to-kanji-with-surrounding "unknownword" "" 1 nil))))
      ;; Should fall back to the original input
@@ -239,7 +243,7 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-multiple-candidates ()
   "Test that mock returns multiple candidates."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((results (sumibi-roman-to-kanji-with-surrounding "henkan" "" 3 nil)))
      (should (>= (length results) 2))
@@ -247,12 +251,180 @@ idempotent and side-effect free for other tests."
 
 (ert-deftest sumibi-mozc-mock-deterministic-output ()
   "Test that mock produces deterministic output."
-  (skip-unless (getenv "SUMIBI_TEST_USE_MOCK"))
+  (skip-unless (or (getenv "SUMIBI_TEST_USE_MOCK") sumibi-test-use-mozc-mock))
   (sumibi-test-with-mozc
    (let ((result1 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil)))
          (result2 (car (sumibi-roman-to-kanji-with-surrounding "henkan" "" 1 nil))))
      (should (string= result1 result2))
      (should (string= result1 "変換")))))
+
+;; Tests for mozc history functionality
+(defvar sumibi-history-stack)
+(defvar sumibi-history-loaded)
+
+(ert-deftest sumibi-history-test-ensure-directory ()
+  "Test directory creation."
+  (let ((test-dir "/tmp/sumibi-test"))
+    (when (file-directory-p test-dir)
+      (delete-directory test-dir t))
+    (should-not (file-directory-p test-dir))
+    (let ((sumibi-ensure-history-directory
+           (lambda () (make-directory test-dir t))))
+      (funcall sumibi-ensure-history-directory)
+      (should (file-directory-p test-dir))
+      (delete-directory test-dir t))))
+
+(ert-deftest sumibi-history-test-save-to-file ()
+  "Test saving history stack to file."
+  (let ((sumibi-history-stack 
+         '(((markers . (292 . 295))
+            (cand-cur . 3)
+            (cand-cur-backup . 3)
+            (cand-len . 5)
+            (last-fix . "日本語")
+            (last-roman . "nihongo")
+            (genbun . "nihongo")
+            (henkan-kouho-list ("日本語" "候補1" 0 l 0) ("にほんご" "候補2" 0 l 1) ("ニホンゴ" "候補3" 0 l 2) ("日本語" "候補4" 0 l 3) ("nihongo" "原文まま" 0 l 4))
+            (bufname . "*scratch*"))
+           ((markers . (274 . 275))
+            (cand-cur . 0)
+            (cand-cur-backup . 0)
+            (cand-len . 31)
+            (last-fix . "版")
+            (last-roman . "ban")
+            (genbun . "ban")
+            (henkan-kouho-list ("版" "候補1" 0 l 0) ("ばん" "候補2" 0 l 1) ("バン" "候補3" 0 l 2) ("番" "候補4" 0 l 3) ("晩" "候補5" 0 l 4))
+            (bufname . "*scratch*"))
+           ((markers . (271 . 274))
+            (cand-cur . 2)
+            (cand-cur-backup . 2)
+            (cand-len . 4)
+            (last-fix . "モックバン")
+            (last-roman . "mokkuban ")
+            (genbun . "mokkuban ")
+            (henkan-kouho-list ("模擬版" "候補1" 0 l 0) ("もっくばん" "候補2" 0 l 1) ("モックバン" "候補3" 0 l 2) ("mokkuban " "原文まま" 0 l 3))
+            (bufname . "*scratch*"))))
+        (test-file "/tmp/sumibi-test-history.jsonl"))
+    ;; テスト用ファイルを削除
+    (when (file-exists-p test-file)
+      (if (file-directory-p test-file)
+          (delete-directory test-file t)
+        (delete-file test-file)))
+    (should-not (file-exists-p test-file))
+    ;; 実際のsumibi-save-history-to-file関数をテスト
+    (let ((sumibi-debug-print (lambda (msg)))
+          (sumibi-history-file-path test-file))
+      (sumibi-save-history-to-file))
+    (should (file-exists-p test-file))
+    
+    ;; ファイル内容を確認（markersが配列として保存されているか）
+    (with-temp-buffer
+      (insert-file-contents test-file)
+      (let ((content (buffer-string)))
+        (should (string-match-p "\"markers\":\\[292,295\\]" content))))
+    ;; クリーンアップ
+    (when (file-exists-p test-file)
+      (if (file-directory-p test-file)
+          (delete-directory test-file t)
+        (delete-file test-file)))))
+
+(ert-deftest sumibi-history-test-load-normal-file ()
+  "Test loading normal history file."
+  (let ((sumibi-history-stack '())
+        (test-file "/tmp/sumibi-test-load-normal.jsonl"))
+    ;; 正常なJSONLファイルを作成（markersはnull）
+    (with-temp-buffer
+      (insert "{\"markers\":null,\"cand-cur\":3,\"last-fix\":\"日本語\",\"genbun\":\"nihongo\"}\n")
+      (insert "{\"markers\":null,\"cand-cur\":0,\"last-fix\":\"版\",\"genbun\":\"ban\"}\n")
+      (write-region (point-min) (point-max) test-file nil 'silent))
+    (should (file-exists-p test-file))
+    
+    ;; 履歴を読み込む
+    (let ((sumibi-debug-print (lambda (msg)))
+          (sumibi-history-file-path test-file))
+      (let ((result (sumibi-load-history-from-file)))
+        (should (= (car result) 2))    ; 成功した行数
+        (should (= (cadr result) 0))   ; エラー行数
+        (should (= (length sumibi-history-stack) 2))
+        (let ((first-entry (car sumibi-history-stack)))
+          (should (equal (cdr (assoc 'last-fix first-entry)) "日本語"))
+          (should (equal (cdr (assoc 'genbun first-entry)) "nihongo"))
+          (should (null (cdr (assoc 'markers first-entry)))))))
+    
+    ;; クリーンアップ
+    (when (file-exists-p test-file)
+      (if (file-directory-p test-file)
+          (delete-directory test-file t)
+        (delete-file test-file)))))
+
+(ert-deftest sumibi-history-test-load-corrupted-file ()
+  "Test loading corrupted history file."
+  (let ((sumibi-history-stack '())
+        (test-file "/tmp/sumibi-test-load-corrupted.jsonl"))
+    ;; 破損したJSONLファイルを作成
+    (with-temp-buffer
+      (insert "{\"markers\":[292,295],\"cand-cur\":3,\"last-fix\":\"日本語\",\"genbun\":\"nihongo\"}\n")
+      (insert "{ broken json line without closing brace\n")
+      (insert "{\"markers\":[274,275],\"cand-cur\":0,\"last-fix\":\"版\",\"genbun\":\"ban\"}\n")
+      (insert "completely invalid json\n")
+      (insert "{\"markers\":[100,110],\"cand-cur\":1,\"last-fix\":\"テスト\",\"genbun\":\"test\"}\n")
+      (write-region (point-min) (point-max) test-file nil 'silent))
+    (should (file-exists-p test-file))
+    
+    ;; 履歴を読み込む
+    (let ((sumibi-debug-print (lambda (msg)))
+          (sumibi-history-file-path test-file))
+      (let ((result (sumibi-load-history-from-file)))
+        (should (= (car result) 3))    ; 成功した行数
+        (should (= (cadr result) 2))   ; エラー行数
+        (should (= (length sumibi-history-stack) 3))
+        (let ((first-entry (car sumibi-history-stack)))
+          (should (equal (cdr (assoc 'last-fix first-entry)) "日本語")))))
+    
+    ;; クリーンアップ
+    (when (file-exists-p test-file)
+      (if (file-directory-p test-file)
+          (delete-directory test-file t)
+        (delete-file test-file)))))
+
+(ert-deftest sumibi-history-test-load-empty-file ()
+  "Test loading empty history file."
+  (let ((sumibi-history-stack '())
+        (test-file "/tmp/sumibi-test-load-empty.jsonl"))
+    ;; 空のファイルを作成
+    (with-temp-buffer
+      (write-region (point-min) (point-max) test-file nil 'silent))
+    (should (file-exists-p test-file))
+    
+    ;; 履歴を読み込む
+    (let ((sumibi-debug-print (lambda (msg)))
+          (sumibi-history-file-path test-file))
+      (let ((result (sumibi-load-history-from-file)))
+        (should (= (car result) 0))    ; 成功した行数
+        (should (= (cadr result) 0))   ; エラー行数
+        (should (= (length sumibi-history-stack) 0))))
+    
+    ;; クリーンアップ
+    (when (file-exists-p test-file)
+      (if (file-directory-p test-file)
+          (delete-directory test-file t)
+        (delete-file test-file)))))
+
+(ert-deftest sumibi-history-test-load-nonexistent-file ()
+  "Test loading nonexistent history file."
+  (let ((sumibi-history-stack '())
+        (test-file "/tmp/sumibi-test-nonexistent.jsonl"))
+    ;; ファイルが存在しないことを確認
+    (when (file-exists-p test-file)
+      (delete-file test-file))
+    (should-not (file-exists-p test-file))
+    
+    ;; 履歴を読み込む
+    (let ((sumibi-debug-print (lambda (msg)))
+          (sumibi-history-file-path test-file))
+      (let ((result (sumibi-load-history-from-file)))
+        (should (null result))  ; ファイルが存在しない場合はnilを返す
+        (should (= (length sumibi-history-stack) 0))))))
 
 (provide 'sumibi-mozc-tests)
 
