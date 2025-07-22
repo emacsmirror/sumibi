@@ -22,8 +22,8 @@ PACKAGE_DIR := $(REPO_NAME)-$(VERSION)
 # Locate all .el files under the lisp directory
 EL_FILES := $(shell find ./lisp -type f -name '*.el')
 
-# Markdown files in the repository root
-MD_FILES := $(shell find . -maxdepth 1 -type f -name '*.md')
+# Markdown files in the repository root (excluding GEMINI.md, AGENTS.md, CLAUDE.md, PLAN.md)
+MD_FILES := $(shell find . -maxdepth 1 -type f -name '*.md' | grep -v -E 'GEMINI\.md|AGENTS\.md|CLAUDE\.md|PLAN\.md')
 
 # LICENSE file, if present
 LICENSE_FILE := $(wildcard LICENSE)
