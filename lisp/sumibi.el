@@ -5,7 +5,7 @@
 ;; Copyright (C) 2023 Kiyoka Nishiyama
 ;;
 ;; Author: Kiyoka Nishiyama <kiyoka@sumibi.org>
-;; Version: 3.4.0
+;; Version: 3.5.0
 ;; Keywords: lisp, ime, japanese
 ;; Package-Requires: ((emacs "29.0") (popup "0.5.9") (unicode-escape "1.1") (deferred "0.5.1") (mozc))
 ;; URL: https://github.com/kiyoka/Sumibi
@@ -1229,7 +1229,9 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
            (lambda (x)
              (list (car x)
                    (sumibi--annotation-label (car x) (+ 1 (cdr x)))
-                   0 'h (cdr x)))
+                   0 
+                   (sumibi-determine-candidate-type (car x))
+                   (cdr x)))
            (-zip-pair
 	    extended-lst
 	    '(
@@ -1262,7 +1264,9 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
       (lambda (x)
         (list (car x)
 	      (sumibi--annotation-label (car x) (+ 1 (cdr x)))
-	      0 'l (cdr x)))
+	      0 
+	      (sumibi-determine-candidate-type (car x))
+	      (cdr x)))
       (-zip-pair
        lst
        '(
@@ -1294,6 +1298,38 @@ str: ひらがな文字列"
 		       (string (- char #x60))
                      (string char)))
                  (string-to-list str))))
+
+(defun sumibi-determine-candidate-type (str)
+  "候補文字列STRから適切な候補タイプを判定する.
+戻り値: 'j (漢字), 'h (ひらがな), 'k (カタカナ), 'l (半角), 'z (全角)"
+  (cond
+   ;; ひらがなのみ
+   ((string-match-p "^[ぁ-ん]+$" str) 'h)
+   ;; カタカナのみ
+   ((string-match-p "^[ァ-ヶ]+$" str) 'k)
+   ;; 漢字を含む
+   ((sumibi-string-include-kanji str) 'j)
+   ;; 半角文字のみ
+   ((string-match-p "^[[:ascii:]]+$" str) 'l)
+   ;; その他（全角）
+   (t 'z)))
+
+(defun sumibi-mozc-candidates-to-structure (cands)
+  "Mozc候補リストを適切な候補構造に変換する.
+CANDS: Mozcから返された候補文字列のリスト
+戻り値: 構造化された候補リスト"
+  (-map
+   (lambda (x)
+     (list (car x)
+           (if (get-text-property 0 'sumibi-mozc-candidate (car x))
+               (sumibi--annotation-label (car x) (+ 1 (cdr x)))
+             (sumibi--annotation-label (car x) (+ 1 (cdr x))))
+           0
+           (sumibi-determine-candidate-type (car x))
+           (cdr x)))
+   (-zip-pair
+    cands
+    (-iota (length cands)))))
 
 (defun sumibi-henkan-request (roman surrounding-text inverse-flag deferred-func2)
   "ローマ字で書かれた文章を複数候補作成して返す.
@@ -2393,7 +2429,7 @@ point から行頭方向に同種の文字列が続く間を漢字変換しま�
                                   (length sumibi-history-stack) file-path)))))
 
 (defconst sumibi-version
-  "3.4.0" ;;SUMIBI-VERSION
+  "3.5.0" ;;SUMIBI-VERSION
   )
 (defun sumibi-version (&optional _arg)
   "Sumibiのバージョン番号をミニバッファに表示する.
