@@ -47,7 +47,7 @@ https://github.com/kiyoka/Sumibi/issues/53
 
 ### ディレクトリ構造
 - `lisp/` - メインのEmacs Lispソースコード
-  - `sumibi.el` - メイン実装 (v3.3.0)
+  - `sumibi.el` - メイン実装 (v3.5.0)
   - `sumibi-localdic.el` - ローカル辞書サポート
 - `test/` - ERTテストファイル
 - `benchmark/` - パフォーマンスベンチマークツール
