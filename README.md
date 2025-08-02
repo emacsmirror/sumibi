@@ -47,6 +47,8 @@ Emacsを再起動するとSumibiがステータスバーに表示されます。
 
 ## ローマ字や英語の文章から日本語への変換
 
+https://github.com/user-attachments/assets/0e66d428-a35e-4920-a816-2bb0c6cc99c9
+
 1. ローマ字で書いた文章の最後にカーソルを合わせて、Ctrl-J を入力すると日本語の文章に置き換わります。
     ![image.png](./images/img_15.png)
     ![image.png](./images/img_16.png)
@@ -65,6 +67,8 @@ Emacsを再起動するとSumibiがステータスバーに表示されます。
 ## GPTの利用モデルの切り替え
 
 M-x sumibi-switch-modelでポップアップから利用モデルを動的に変更することができます。
+
+https://github.com/user-attachments/assets/7fae1c5b-84ed-402c-9b5e-9bfb39f29237
 
 デフォルトでは、"gpt-4.1-mini"と"gpt-4"のなど多数のモデル名を登録しています。
 選択肢を増やしたい場合は、カスタマイズ変数 `sumibi-model-list` に候補を追加してください。
