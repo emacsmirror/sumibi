@@ -22,17 +22,17 @@ from matplotlib.lines import Line2D
 # マスタ情報 (コスト & 色)
 # ---------------------------------------------------------------------------
 # 価格は sumibi_typical_convert_client のプロンプト (入力500トークン、出力200トークン) を想定し、
-# Anthropic 公式価格表に基づき計算
-# Claude Opus 4: Input $15/1M, Output $75/1M → $0.0225
-# Claude Sonnet 4: Input $3/1M, Output $15/1M → $0.0045
+# OpenAI公式価格表 (2025年1月) およびAnthropic公式価格表に基づき計算
+# OpenAI: https://platform.openai.com/docs/pricing
+# Anthropic Claude: Input $15/1M, Output $75/1M (Opus), Input $3/1M, Output $15/1M (Sonnet)
 MASTER_COST: Dict[str, float] = {
-    "gpt-3.5-turbo": 0.00055,
-    "gpt-4.1-mini": 0.00052,
-    "gpt-4.1": 0.00260,
-    "gpt-4o-mini": 0.000195,
-    "gpt-4o": 0.00550,
-    "o3": 0.00260,
-    "o4-mini": 0.00143,
+    "gpt-3.5-turbo": 0.00055,  # $0.50 input + $1.50 output → (500×0.5 + 200×1.5)/1M = $0.55/1K
+    "gpt-4.1-mini": 0.00052,   # 推定値 (GPT-4o-miniベース)
+    "gpt-4.1": 0.00650,        # $10 input + $30 output → (500×10 + 200×30)/1M = $6.50/1K
+    "gpt-4o-mini": 0.000195,   # $0.15 input + $0.60 output → (500×0.15 + 200×0.60)/1M = $0.195/1K
+    "gpt-4o": 0.0065,          # $5 input + $20 output → (500×5 + 200×20)/1M = $6.50/1K
+    "o3": 0.0065,              # 推定値 (高性能モデルとしてGPT-4oベース)
+    "o4-mini": 0.00143,        # 推定値
     "deepseek-v3": 0.000355,
     "gemini-2.0-flash": 0.00013,
     "gemini-2.0-flash-lite": 0.0000975,
@@ -190,7 +190,7 @@ def main():
     parser = argparse.ArgumentParser(description="Plot error rate vs cost (v2.4.0)")
     parser.add_argument("-o", "--output", help="Output image file path")
     parser.add_argument("--range", type=int, default=0, choices=[0, 1],
-                        help="Axis range mode: 0=default (0-70%%, auto x), 1=zoomed (0-35%%, 0-0.006$)")
+                        help="Axis range mode: 0=default (0-70%%, auto x), 1=zoomed (0-35%%, 0-0.008$)")
     args = parser.parse_args()
 
     plt.figure(figsize=(8, 6))
@@ -226,7 +226,7 @@ def main():
     elif args.range == 1:
         # ズーム範囲
         plt.ylim(0, 35)
-        plt.xlim(0, 0.006)
+        plt.xlim(0, 0.008)
 
     # 座標スケールを線形のまま維持（必要に応じて変更可）
 
