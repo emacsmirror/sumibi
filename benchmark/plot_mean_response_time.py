@@ -43,6 +43,9 @@ MODELS: List[str] = [
     "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro-preview-05-06",
     "o3",
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-20250514",
+    "claude-sonnet-4-20250514",
 ]
 
 # 平均応答時間 (sec) v2.4.0
@@ -59,6 +62,9 @@ MEAN_ELAPSED_V24 = [
     4.177074,
     17.666037,
     12.771444,
+    2.616859,
+    2.476723,
+    2.790457,
 ]
 
 MEAN_CER_V24 = [
@@ -74,6 +80,9 @@ MEAN_CER_V24 = [
     0.088799,
     0.061644,
     0.077915,
+    0.119479,
+    0.110761,
+    0.125210,
 ]
 
 # カラー (plot_errorrate_vs_cost.py と合わせている)
@@ -90,6 +99,9 @@ BAR_COLORS = [
     "darkgray",
     "gray",
     "cyan",
+    "mediumpurple",
+    "blueviolet",
+    "mediumorchid",
 ]
 
 # ---------------------------------------------------------------------------
