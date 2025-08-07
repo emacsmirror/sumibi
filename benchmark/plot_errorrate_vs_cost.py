@@ -22,7 +22,9 @@ from matplotlib.lines import Line2D
 # マスタ情報 (コスト & 色)
 # ---------------------------------------------------------------------------
 # 価格は sumibi_typical_convert_client のプロンプト (入力500トークン、出力200トークン) を想定し、
-# Text tokens per 1M tokens: Input $2.00, Cached input $0.50, Output $8.00 に基づき計算
+# Anthropic 公式価格表に基づき計算
+# Claude Opus 4: Input $15/1M, Output $75/1M → $0.0225
+# Claude Sonnet 4: Input $3/1M, Output $15/1M → $0.0045
 MASTER_COST: Dict[str, float] = {
     "gpt-3.5-turbo": 0.00055,
     "gpt-4.1-mini": 0.00052,
@@ -36,9 +38,9 @@ MASTER_COST: Dict[str, float] = {
     "gemini-2.0-flash-lite": 0.0000975,
     "gemini-2.5-flash-preview-04-17": 0.000195,
     "gemini-2.5-pro-preview-05-06": 0.002625,
-    "claude-opus-4-1-20250805": 0.00750,
-    "claude-opus-4-20250514": 0.00750,
-    "claude-sonnet-4-20250514": 0.00150,
+    "claude-opus-4-1-20250805": 0.0225,
+    "claude-opus-4-20250514": 0.0225,
+    "claude-sonnet-4-20250514": 0.0045,
 }
 
 # モデルごとの基本色。matplotlib の named color もしくは hex
@@ -187,6 +189,8 @@ def build_legend():
 def main():
     parser = argparse.ArgumentParser(description="Plot error rate vs cost (v2.4.0)")
     parser.add_argument("-o", "--output", help="Output image file path")
+    parser.add_argument("--range", type=int, default=0, choices=[0, 1],
+                        help="Axis range mode: 0=default (0-70%%, auto x), 1=zoomed (0-35%%, 0-0.006$)")
     args = parser.parse_args()
 
     plt.figure(figsize=(8, 6))
@@ -205,13 +209,24 @@ def main():
     # 軸設定
     plt.xlabel("Cost Per Request ($)")
     plt.ylabel("Error Rate (%)")
-    plt.title("Error Rate vs Cost of LLM Model (v2.4.0)")
+    
+    # タイトル設定
+    if args.range == 1:
+        plt.title("Error Rate vs Cost of LLM Model (v2.4.0) - Zoomed")
+    else:
+        plt.title("Error Rate vs Cost of LLM Model (v2.4.0)")
+    
     plt.grid(True, which="both", linestyle=":", linewidth=0.5)
 
-    # Y 軸 0–70 %
-    plt.ylim(0, 70)
-    # 余白 (x 軸)
-    plt.margins(x=0.05)
+    # 軸範囲設定
+    if args.range == 0:
+        # デフォルト範囲
+        plt.ylim(0, 70)
+        plt.margins(x=0.05)
+    elif args.range == 1:
+        # ズーム範囲
+        plt.ylim(0, 35)
+        plt.xlim(0, 0.006)
 
     # 座標スケールを線形のまま維持（必要に応じて変更可）
 

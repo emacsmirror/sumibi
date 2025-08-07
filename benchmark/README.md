@@ -44,8 +44,14 @@ response = self.client.chat.completions.create(
 
 ## 測定結果グラフ
 
+### エラー率 vs コスト（全体表示）
 ![plot1](../images/plot_errorrate_vs_cost_1000x600.png)
 
+### エラー率 vs コスト（ズーム表示）
+低コスト・低エラー率の実用的なモデルに焦点を当てた詳細表示（エラー率0-35%、コスト0-0.006$の範囲）
+![plot1_zoomed](../images/plot_errorrate_vs_cost_zoomed_1000x600.png)
+
+### 平均応答時間とエラー率
 ![plot2](../images/plot_mean_response_time_1000x600.png)
 
 ## 傾向分析
