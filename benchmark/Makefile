@@ -7,6 +7,7 @@ RESULTS := gpt-3.5-turbe.json gpt-4.1-mini.json gpt-4.1.json gpt-4o-mini.json gp
 	   llama-3.3-70b-instruct.json \
 	   stockmark-2-100b-instruct-beta@q3_k_m.json \
 	   llm-jp-3.1-8x13b-instruct4.json llm-jp-3.1-13b-instruct4.json \
+	   claude-3-7-sonnet-20250219.json \
 	   claude-sonnet-4-20250514.json \
 	   claude-opus-4-20250514.json \
 	   claude-opus-4-1-20250805.json
