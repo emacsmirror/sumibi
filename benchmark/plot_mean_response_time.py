@@ -40,9 +40,17 @@ MODELS: List[str] = [
     "deepseek-v3",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-flash-preview-04-17",
-    "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
     "o3",
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-20250514",
+    "claude-sonnet-4-20250514",
+    "gpt-5-mini(medium)",
+    "gpt-5-mini(minimal)",
+    "gpt-5-nano(minimal)",
+    "gpt-5(minimal)",
+    "gpt-5(medium)",
 ]
 
 # 平均応答時間 (sec) v2.4.0
@@ -54,11 +62,19 @@ MEAN_ELAPSED_V24 = [
     0.983554,
     14.309153,
     5.139222,
-    0.609305,
-    0.590890,
-    4.177074,
-    17.666037,
+    0.739066,
+    0.658537,
+    4.197881,
+    18.825541,
     12.771444,
+    2.616859,
+    2.476723,
+    2.790457,
+    15.645264,
+    1.278602,
+    1.140173,
+    1.858604,
+    34.859140,
 ]
 
 MEAN_CER_V24 = [
@@ -69,11 +85,19 @@ MEAN_CER_V24 = [
     0.130022,
     0.196260,
     0.296198,
-    0.192571,
-    0.322322,
-    0.088799,
-    0.061644,
+    0.212067,
+    0.330811,
+    0.109744,
+    0.048225,
     0.077915,
+    0.119479,
+    0.110761,
+    0.125210,
+    0.250286,
+    0.359281,
+    0.894475,
+    0.127556,
+    0.046352,
 ]
 
 # カラー (plot_errorrate_vs_cost.py と合わせている)
@@ -90,6 +114,14 @@ BAR_COLORS = [
     "darkgray",
     "gray",
     "cyan",
+    "mediumpurple",
+    "blueviolet",
+    "mediumorchid",
+    "limegreen",
+    "forestgreen",
+    "darkgreen",
+    "seagreen",
+    "green",
 ]
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ class SumibiTypicalConvertClient:
     このライブラリは、sumibi.elのsumibi-roman-to-kanji-with-surrounding()関数と同じプロンプトで、
     LLMプロバイダーのchat.completion APIを呼び出すためのものです。
     """
-    def __init__(self, api_key=None, base_url=None, model=None, temperature=0.8):
+    def __init__(self, api_key=None, base_url=None, model=None, temperature=0.8, reasoning_effort=None):
         """
         Initialize the SumibiTypicalConvertClient.
 
@@ -19,6 +19,7 @@ class SumibiTypicalConvertClient:
             base_url (str): Base URL for OpenAI API (without version). If None, reads from SUMIBI_AI_BASEURL env or uses default.
             model (str): Model name to use. If None, reads from SUMIBI_AI_MODEL env or uses "gpt-4.1".
             temperature (float): Sampling temperature for the API call.
+            reasoning_effort (str): Reasoning effort level for reasoning models. If None, no reasoning_effort is used.
         """
         self.api_key = api_key or os.getenv("SUMIBI_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         base_url_env = base_url or os.getenv("SUMIBI_AI_BASEURL") or "https://api.openai.com"
@@ -30,6 +31,7 @@ class SumibiTypicalConvertClient:
             self.base_url = raw_url + "/v1"
         self.model = model or os.getenv("SUMIBI_AI_MODEL") or "gpt-4.1"
         self.temperature = temperature
+        self.reasoning_effort = reasoning_effort
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def convert(self, surrounding_text, text):
@@ -87,9 +89,19 @@ class SumibiTypicalConvertClient:
                 ),
             },
         ]
-        response = self.client.chat.completions.create(
-            model=self.model, temperature=self.temperature, n=1, messages=messages
-        )
+        # Create API call parameters
+        api_params = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "n": 1,
+            "messages": messages
+        }
+        
+        # Add reasoning_effort if specified
+        if self.reasoning_effort is not None:
+            api_params["reasoning_effort"] = self.reasoning_effort
+        
+        response = self.client.chat.completions.create(**api_params)
         return response.choices[0].message.content
 
 if __name__ == "__main__":
