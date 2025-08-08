@@ -10,7 +10,12 @@ RESULTS := gpt-3.5-turbe.json gpt-4.1-mini.json gpt-4.1.json gpt-4o-mini.json gp
 	   claude-3-7-sonnet-20250219.json \
 	   claude-sonnet-4-20250514.json \
 	   claude-opus-4-20250514.json \
-	   claude-opus-4-1-20250805.json
+	   claude-opus-4-1-20250805.json \
+	   gpt-5-mini\(medium\).json \
+	   gpt-5-mini\(minimal\).json \
+	   gpt-5-nano\(minimal\).json \
+	   gpt-5\(minimal\).json \
+	   gpt-5\(medium\).json
 
 .DEFAULT_GOAL := help
 .PHONY: help all aggregate clean plots
