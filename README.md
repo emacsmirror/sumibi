@@ -30,7 +30,7 @@ Emacs version 29.x 以上 (Windows/Linux/macOS) で動作します。Emacs以外
 
 2. 環境変数 `SUMIBI_AI_API_KEY` にOpenAI APIキーを登録します。`SUMIBI_AI_API_KEY` が未定義の場合は、環境変数 `OPENAI_API_KEY` の値を使用します。
 3. 任意で環境変数 `SUMIBI_AI_BASEURL` にAPIエンドポイントのベースURLを指定できます。定義されていない場合は `https://api.openai.com` を使用します。
-3. 任意で環境変数 `SUMIBI_AI_MODEL` にGPTの利用モデルを指定できます。定義されていない場合はデフォルトで gpt-4.1-mini になります。
+3. 任意で環境変数 `SUMIBI_AI_MODEL` にGPTの利用モデルを指定できます。定義されていない場合はデフォルトで gpt-5 になります。
 4. MELPAからパッケージ「sumibi」をインストールします。
 5. \~/.emacs.d/init.el に以下のコードを追加します。
 
@@ -42,7 +42,7 @@ Emacs version 29.x 以上 (Windows/Linux/macOS) で動作します。Emacs以外
 ## インストールが成功したかどうかの確認方法
 
 Emacsを再起動するとSumibiがステータスバーに表示されます。
-[gpt-4.1-mini] はOpenAI API呼び出しで使用しているGPTのモデルです。
+[gpt-5] はOpenAI API呼び出しで使用しているGPTのモデルです。
 ![image.png](./images/img_9.png)
 
 ## ローマ字や英語の文章から日本語への変換
@@ -70,7 +70,7 @@ M-x sumibi-switch-modelでポップアップから利用モデルを動的に変
 
 https://github.com/user-attachments/assets/7fae1c5b-84ed-402c-9b5e-9bfb39f29237
 
-デフォルトでは、"gpt-4.1-mini"と"gpt-4"のなど多数のモデル名を登録しています。
+デフォルトでは、"gpt-5"、"gpt-5-mini"、"gpt-4.1"、"gpt-4o"など多数のモデル名を登録しています。
 選択肢を増やしたい場合は、カスタマイズ変数 `sumibi-model-list` に候補を追加してください。
 
 ## Undo
