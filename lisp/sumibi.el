@@ -875,7 +875,7 @@ Argument DEFERRED-FUNC2 : 非同期呼び出し時のコールバック関数 (2
              "  \"temperature\": 0.8,")
            (format  "  \"n\": %d," arg-n)
            (if (sumibi-gpt5-series-p)
-               "  \"reasoning_effort\": \"minimal\","
+               "  \"reasoning_effort\": \"minimal\",  \"verbosity\": \"low\","
              "")
            "  \"messages\": [ "
            (string-join
