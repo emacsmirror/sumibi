@@ -27,8 +27,10 @@ class SumibiBench:
         model = os.getenv("SUMIBI_AI_MODEL", "gpt-4.1")
         temperature = 1.0 if model.startswith("gpt-5-") else None
         reasoning_effort = "minimal" if model.startswith("gpt-5-") else None
+        # Set verbosity='low' for gpt-5 models if SUMIBI_AI_VERBOSITY env is set
+        verbosity = os.getenv("SUMIBI_AI_VERBOSITY") if model.startswith("gpt-5") else None
 
-        self.client = SumibiTypicalConvertClient(temperature=temperature, reasoning_effort=reasoning_effort)
+        self.client = SumibiTypicalConvertClient(temperature=temperature, reasoning_effort=reasoning_effort, verbosity=verbosity)
         # collect conversion results
         self.result_arr = []
 
