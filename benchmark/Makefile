@@ -20,7 +20,8 @@ RESULTS := gpt-3.5-turbe.json gpt-4.1-mini.json gpt-4.1.json gpt-4o-mini.json gp
 	   gpt-5-nano\(minimal\).json \
 	   gpt-5\(minimal\).json \
 	   gpt-5\(minimal\+low\).json \
-	   gpt-5\(medium\).json
+	   gpt-5\(medium\).json \
+           gpt-oss-120b.json
 
 .DEFAULT_GOAL := help
 .PHONY: help all aggregate clean plots
