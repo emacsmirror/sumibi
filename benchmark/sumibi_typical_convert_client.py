@@ -3,7 +3,20 @@
 sumibi.elの性能評価プログラムの一部です。
 """
 import os
+import re
 from openai import OpenAI
+
+def remove_reasoning_tags(text):
+    """
+    Remove <reasoning>...</reasoning> tags from the given text.
+    
+    Args:
+        text (str): Input text that may contain reasoning tags
+        
+    Returns:
+        str: Text with reasoning tags removed and stripped of extra whitespace
+    """
+    return re.sub(r'<reasoning>.*?</reasoning>', '', text, flags=re.DOTALL).strip()
 
 class SumibiTypicalConvertClient:
     """
@@ -51,6 +64,8 @@ class SumibiTypicalConvertClient:
             {
                 "role": "system",
                 "content": (
+                    "推論レベル: 低。直接的な変換結果のみ出力。"
+                    "推論過程や説明を一切出力せず、変換結果のみを返答してください。"
                     "あなたはローマ字とひらがなを日本語に変換するアシスタントです。"
                     "ローマ字の 「nn」 は 「ん」と読んでください。"
                     "[](URL)のようなmarkdown構文は維持してください。"
@@ -108,7 +123,10 @@ class SumibiTypicalConvertClient:
             api_params["verbosity"] = self.verbosity
         
         response = self.client.chat.completions.create(**api_params)
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        
+        # Remove <reasoning>...</reasoning> tags from the response
+        return remove_reasoning_tags(content)
 
 if __name__ == "__main__":
     # Example usage
