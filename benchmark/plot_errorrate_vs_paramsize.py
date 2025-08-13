@@ -21,7 +21,8 @@ modules = [
     'llama-3.3-70b-instruct',
     'stockmark-2-100b-instruct-beta@q3_k_m',
     'llm-jp-3.1-8x13b-instruct4',
-    'llm-jp-3.1-13b-instruct4'
+    'llm-jp-3.1-13b-instruct4',
+    'gpt-oss-120b(low)'
 ]
 # エラー率 (mean CER)
 error_rates = [
@@ -35,6 +36,7 @@ error_rates = [
     0.891659,
     0.735276,
     0.903498,
+    0.591938,
 ]
 # パラメータ数 (ビリオン単位)
 param_sizes = [
@@ -48,6 +50,7 @@ param_sizes = [
     100,
     104,
     13,
+    120,
 ]
 markers = [
     's',
@@ -58,6 +61,7 @@ markers = [
     's',
     's',
     's',
+    'o',
     'o',
     'o',
 ]
@@ -74,6 +78,7 @@ base_colors = [
     'tab:gray',    # グレー
     'tab:cyan',    # シアン
     'tab:olive',   # オリーブ (for 13b)
+    'gold',       # 金 (for gpt-oss-120b)
 ]
 colors = base_colors[:len(modules)]
 
@@ -92,8 +97,8 @@ plt.xlabel('Parameter Size (Billion)')
 plt.ylabel('Error Rate (%)')
 plt.title('Error Rate vs Parameter Size for Local LLMs')
 plt.grid(True)
-# y 軸を 70%～110% の範囲に設定
-plt.ylim(70, 110)
+# y 軸を 50%～105% の範囲に設定
+plt.ylim(50, 105)
 plt.margins(x=0.05)
 plt.tight_layout()
 
