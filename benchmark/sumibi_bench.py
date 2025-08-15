@@ -26,7 +26,12 @@ class SumibiBench:
         # Set temperature=1.0 and reasoning_effort='minimal' for gpt-5- models
         model = os.getenv("SUMIBI_AI_MODEL", "gpt-4.1")
         temperature = 1.0 if model.startswith("gpt-5-") else None
-        reasoning_effort = "minimal" if model.startswith("gpt-5-") else None
+        if model.startswith("gpt-5-"):
+            reasoning_effort = "minimal"
+        elif model.startswith("gpt-oss-") or model.startswith("openai.gpt-oss-"):
+            reasoning_effort = "low"
+        else:
+            reasoning_effort = None
         # Set verbosity='low' for gpt-5 models if SUMIBI_AI_VERBOSITY env is set
         verbosity = os.getenv("SUMIBI_AI_VERBOSITY") if model.startswith("gpt-5") else None
 
