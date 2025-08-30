@@ -3,7 +3,20 @@
 sumibi.elの性能評価プログラムの一部です。
 """
 import os
+import re
 from openai import OpenAI
+
+def remove_reasoning_tags(text):
+    """
+    Remove <reasoning>...</reasoning> tags from the given text.
+    
+    Args:
+        text (str): Input text that may contain reasoning tags
+        
+    Returns:
+        str: Text with reasoning tags removed and stripped of extra whitespace
+    """
+    return re.sub(r'<reasoning>.*?</reasoning>', '', text, flags=re.DOTALL).strip()
 
 class SumibiTypicalConvertClient:
     """
@@ -108,7 +121,10 @@ class SumibiTypicalConvertClient:
             api_params["verbosity"] = self.verbosity
         
         response = self.client.chat.completions.create(**api_params)
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        
+        # Remove <reasoning>...</reasoning> tags from the response
+        return remove_reasoning_tags(content)
 
 if __name__ == "__main__":
     # Example usage
