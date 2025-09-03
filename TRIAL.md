@@ -33,7 +33,7 @@ Twitterでお気軽にご連絡ください！すぐにお試しキーをお送�
 
 1. MELPAからパッケージ「sumibi」をインストールします。
 
-2. \~/.emacs.d/init.el に以下のコードを追加します。
+2. \~/.emacs.d/init.el に以下のコードを続き、Emacsを再起動します。
 
 (xxxxxxxxxx の部分に、プレゼントされたLLMアクセスキーを入れてください)
 
@@ -46,8 +46,11 @@ Twitterでお気軽にご連絡ください！すぐにお試しキーをお送�
 (global-sumibi-mode 1)
 ```
 
-SUMIBI_AI_MODELには、"gpt-oss-120b" と "claude-sonnet-4-20250514"のどちらかを指定できます。
-IMEの変換精度の比較ができます。
+3. 設定が完了したら、Emacsのmode lineが次のようになります。
+
+![modeline](/images/sumibi-trial-modeline.png)
+
+補足: SUMIBI_AI_MODELには、"gpt-oss-120b" と "claude-sonnet-4-20250514"のどちらかを指定できます。IMEの変換精度の比較ができます。
 
 ## 操作方法
 
