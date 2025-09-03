@@ -4,7 +4,8 @@
 
 ## 🚀 キャンペーン内容
 
-**Twitterでご連絡いただくだけで、Sumibiを7日間完全無料でお試しいただけるLLMキーをプレゼント！**
+**Twitterで @kiyoka までご連絡いただくだけで、Sumibiを7日間完全無料でお試しいただけるLLMアクセスキーをプレゼント！**
+**お気軽にご連絡ください。**
 
 ✨ **特典**
 - **7日間無料** でSumibiの全機能をご利用いただけます
@@ -18,14 +19,36 @@
 
 ## 🎯 こんな方におすすめ
 
-- **Emacsユーザーの方** - 普段からEmacsをお使いの方に最適です
+- **Emacsユーザーの方** - 普段からEmacsをお使いの方に最適
 - **新しい入力体験をお求めの方** - Sumibiのモードレス入力方式に興味をお持ちの方
 - **AI技術に興味のある方** - 最新のAI技術を活用した日本語入力を体験したい方
+
+https://github.com/user-attachments/assets/0e66d428-a35e-4920-a816-2bb0c6cc99c9
 
 ## 📝 お申し込み方法
 
 Twitterでお気軽にご連絡ください！すぐにお試しキーをお送りいたします。
 
+## Sumibiの設定方法
+
+1. MELPAからパッケージ「sumibi」をインストールします。
+
+2. \~/.emacs.d/init.el に以下のコードを追加します。
+
+(xxxxxxxxxx の部分に、プレゼントされたLLMアクセスキーを入れてください)
+
+```lisp
+;; Sumibi trial
+(setenv "SUMIBI_AI_API_KEY" "xxxxxxxxxx")
+(setenv "SUMIBI_AI_BASEURL" "https://ai-endpoint.sumibi.org/")
+(setenv "SUMIBI_AI_MODEL" "claude-sonnet-4-20250514")
+(require 'sumibi)
+(global-sumibi-mode 1)
+```
+
+## ## 操作方法
+
+詳しい操作方法は [README](README.md)をご覧ください。
+
 ---
 *この機会をお見逃しなく！Sumibiで次世代の日本語入力を体験してください。*
-
