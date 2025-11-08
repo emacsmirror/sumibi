@@ -9,13 +9,15 @@ from openai import OpenAI
 def remove_reasoning_tags(text):
     """
     Remove <reasoning>...</reasoning> tags from the given text.
-    
+
     Args:
         text (str): Input text that may contain reasoning tags
-        
+
     Returns:
         str: Text with reasoning tags removed and stripped of extra whitespace
     """
+    if text is None:
+        return ""
     return re.sub(r'<reasoning>.*?</reasoning>', '', text, flags=re.DOTALL).strip()
 
 class SumibiTypicalConvertClient:
@@ -23,7 +25,7 @@ class SumibiTypicalConvertClient:
     このライブラリは、sumibi.elのsumibi-roman-to-kanji-with-surrounding()関数と同じプロンプトで、
     LLMプロバイダーのchat.completion APIを呼び出すためのものです。
     """
-    def __init__(self, api_key=None, base_url=None, model=None, temperature=0.8, reasoning_effort=None, verbosity=None):
+    def __init__(self, api_key=None, base_url=None, model=None, temperature=0.8, reasoning_effort=None, verbosity=None, timeout=None):
         """
         Initialize the SumibiTypicalConvertClient.
 
@@ -34,6 +36,7 @@ class SumibiTypicalConvertClient:
             temperature (float): Sampling temperature for the API call.
             reasoning_effort (str): Reasoning effort level for reasoning models. If None, no reasoning_effort is used.
             verbosity (str): Verbosity level for GPT-5 models. If None, no verbosity is used.
+            timeout (float): Request timeout in seconds. If None, reads from SUMIBI_AI_TIMEOUT env or uses 120 seconds.
         """
         self.api_key = api_key or os.getenv("SUMIBI_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         base_url_env = base_url or os.getenv("SUMIBI_AI_BASEURL") or "https://api.openai.com"
@@ -47,7 +50,13 @@ class SumibiTypicalConvertClient:
         self.temperature = temperature
         self.reasoning_effort = reasoning_effort
         self.verbosity = verbosity
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        # Set timeout: parameter > env var > default (120 seconds)
+        if timeout is not None:
+            self.timeout = timeout
+        else:
+            timeout_env = os.getenv("SUMIBI_AI_TIMEOUT")
+            self.timeout = float(timeout_env) if timeout_env else 120.0
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=self.timeout)
 
     def convert(self, surrounding_text, text):
         """
