@@ -48,7 +48,7 @@ MASTER_COST: Dict[str, float] = {
     "gpt-5-nano": 0.000105,
     "gpt-5": 0.002625,
     "gpt-5.1": 0.002625,
-    "gpt-5.2": 0.002625,
+    "gpt-5.2": 0.003675,  # $1.75 input + $14 output → (500×1.75 + 200×14)/1M = $3.675/1K (GPT-5.1より40%高い)
     "gpt-oss-120b(low)": 0.00196,
     "llm-jp-3.1-13b-instruct4": 0.0001,
     "llm-jp-3.1-8x13b-instruct4": 0.0002,
