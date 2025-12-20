@@ -35,18 +35,25 @@ class SumibiBench:
 
         # Get model name from environment variable
         # Supported gpt-5 models: gpt-5, gpt-5-mini, gpt-5-nano
+        # Supported gemini-3 models: gemini-3-flash, gemini-3-flash-preview
         model = os.getenv("SUMIBI_AI_MODEL", "gpt-4.1")
 
-        # Set temperature=1.0 for gpt-5 models
-        temperature = 1.0 if model.startswith("gpt-5") else None
+        # Set temperature=1.0 for gpt-5 and gemini-3-flash models
+        if model.startswith("gpt-5") or model.startswith("gemini-3-flash"):
+            temperature = 1.0
+        else:
+            temperature = None
 
         # Set reasoning_effort based on model
+        # Note: For gemini-3-flash models, reasoning_effort automatically maps to thinking_level in OpenAI compatibility mode
         if model in ("gpt-5.1", "gpt-5.2"):
             reasoning_effort = None  # gpt-5.1 and gpt-5.2 use reasoning_effort=none
         elif model.startswith("gpt-5"):
             reasoning_effort = "minimal"  # Fixed to minimal for all gpt-5 models
         elif model.startswith("gpt-oss-") or model.startswith("openai.gpt-oss-"):
             reasoning_effort = "low"
+        elif model.startswith("gemini-3-flash"):
+            reasoning_effort = "low"  # Maps to thinking_level: "low" for gemini-3-flash models
         else:
             reasoning_effort = None
 

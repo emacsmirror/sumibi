@@ -35,6 +35,7 @@ class SumibiTypicalConvertClient:
             model (str): Model name to use. If None, reads from SUMIBI_AI_MODEL env or uses "gpt-4.1".
             temperature (float): Sampling temperature for the API call.
             reasoning_effort (str): Reasoning effort level for reasoning models. If None, no reasoning_effort is used.
+                                   For Gemini models, this maps to thinking_level in OpenAI compatibility mode.
             verbosity (str): Verbosity level for GPT-5 models. If None, no verbosity is used.
             timeout (float): Request timeout in seconds. If None, reads from SUMIBI_AI_TIMEOUT env or uses 120 seconds.
         """
@@ -124,11 +125,11 @@ class SumibiTypicalConvertClient:
         # Add reasoning_effort if specified
         if self.reasoning_effort is not None:
             api_params["reasoning_effort"] = self.reasoning_effort
-        
+
         # Add verbosity if specified
         if self.verbosity is not None:
             api_params["verbosity"] = self.verbosity
-        
+
         response = self.client.chat.completions.create(**api_params)
         content = response.choices[0].message.content
         
