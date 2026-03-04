@@ -73,17 +73,35 @@
   "Return annotation label for STR which is the (IDX+1)-th candidate."
   (format "候補%d" idx))
 
-(defcustom sumibi-current-model "gpt-5.1"
-  "使用する AI モデル名を指定する (デフォルトは gpt-5.1)。
-
-この変数は OpenAI 互換 API に渡す **LLM モデル名** を示します。"
-  :type  'string
+(defcustom sumibi-provider 'openai
+  "使用するAIプロバイダーを指定する。
+- 'openai: OpenAI API（デフォルト）
+- 'gemini: Google Gemini API"
+  :type '(choice (const :tag "OpenAI" openai)
+                 (const :tag "Google Gemini" gemini))
   :group 'sumibi)
 
-(defcustom sumibi-model-list '("gpt-5.1" "gpt-5" "gpt-5-mini" "gpt-4.1" "gpt-4.1-mini" "gpt-4o" "gpt-4o-mini")
-  "AI モデル名の候補を定義する (gpt-4 シリーズ以上)。"
-  :type  '(repeat string)
-  :group 'sumibi)
+(defconst sumibi-provider-defaults
+  '((openai
+     :base-url "https://api.openai.com/v1"
+     :model "gpt-5.1"
+     :model-list ("gpt-5.1" "gpt-5" "gpt-5-mini" "gpt-4.1" "gpt-4.1-mini" "gpt-4o" "gpt-4o-mini")
+     :api-key-env ("SUMIBI_AI_API_KEY" "OPENAI_API_KEY"))
+    (gemini
+     :base-url "https://generativelanguage.googleapis.com/v1beta/openai"
+     :model "gemini-2.0-flash"
+     :model-list ("gemini-2.0-flash" "gemini-2.0-flash-lite" "gemini-2.5-flash" "gemini-2.5-pro")
+     :api-key-env ("SUMIBI_AI_API_KEY" "GEMINI_API_KEY")))
+  "各プロバイダーのデフォルト設定。")
+
+(defun sumibi-provider-get (key)
+  "現在のプロバイダーのKEYに対応するデフォルト値を返す。"
+  (plist-get (cdr (assq sumibi-provider sumibi-provider-defaults)) key))
+
+(defvar sumibi-current-model nil
+  "sumibi-switch-model で選択されたモデル名を保持する。
+nil の場合は sumibi-provider のデフォルトモデルが使用される。")
+
 
 (defcustom sumibi-history-stack-limit 100
   "再度候補選択できる単語と場所を最大何件記憶するか."
@@ -588,13 +606,14 @@ sumibi-auto-convert-romaji-threshold 以上の場合は t を返す。"
 
 (defun sumibi-ai-base-url ()
   "利用中のAIエンドポイントのベースURLを返す。末尾のスラッシュは含まない.
-SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https://api.openai.com/v1\"を返す.
+SUMIBI_AI_BASEURL環境変数が設定されていればそれを優先する.
+未設定の場合は sumibi-provider に応じたデフォルトURLを返す.
 環境変数に\"/v1\"が含まれている場合は、値から末尾のスラッシュを除去して返す.
 それ以外の場合は、値から末尾のスラッシュを除去し、末尾に\"/v1\"を付加して返す."
   (let ((env (getenv "SUMIBI_AI_BASEURL")))
     (cond
      ((not env)
-      "https://api.openai.com/v1")
+      (sumibi-provider-get :base-url))
      ((string-match-p "/v1" env)
       (sumibi-drop-right-slash env))
      (t
@@ -603,8 +622,13 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
        "/v1")))))
 
 (defun sumibi-ai-model ()
-  "利用中のAIモデル名を返す."
-  (or (getenv "SUMIBI_AI_MODEL") sumibi-current-model))
+  "利用中のAIモデル名を返す.
+環境変数 SUMIBI_AI_MODEL が設定されていればそれを優先する.
+次に sumibi-current-model が設定されていればそれを使用する.
+どちらも未設定の場合は sumibi-provider に応じたデフォルトモデルを返す."
+  (or (getenv "SUMIBI_AI_MODEL")
+      sumibi-current-model
+      (sumibi-provider-get :model)))
 
 ;; --------------------------------------------------------------
 ;; API Key retrieval functions
@@ -635,11 +659,11 @@ SUMIBI_AI_BASEURL環境変数が未設定の場合はデフォルトURL\"https:/
 
 (defun sumibi-get-hostname-from-baseurl ()
   "SUMIBI_AI_BASEURLからホスト名を抽出する.
-BASEURLが設定されていない場合は 'api.openai.com' を返す."
-  (let ((baseurl (getenv "SUMIBI_AI_BASEURL")))
-    (if (and baseurl (string-match "https?://\\([^/]+\\)" baseurl))
-        (match-string 1 baseurl)
-      "api.openai.com")))
+BASEURLが設定されていない場合はプロバイダーのデフォルトURLからホスト名を抽出する."
+  (let ((baseurl (or (getenv "SUMIBI_AI_BASEURL")
+                     (sumibi-provider-get :base-url))))
+    (when (string-match "https?://\\([^/]+\\)" baseurl)
+      (match-string 1 baseurl))))
 
 (defun sumibi-get-api-key-from-auth-source ()
   "auth-sourceからAPI Keyを取得する.
@@ -662,9 +686,9 @@ loginは 'apikey' を想定."
 各ソースタイプで厳密なチェックを行う."
   (cond
    ;; 環境変数から取得（従来の方法）
+   ;; sumibi-provider に応じた環境変数リストを順に探索する
    ((eq sumibi-api-key-source 'environment)
-    (or (getenv "SUMIBI_AI_API_KEY")
-        (getenv "OPENAI_API_KEY")))
+    (cl-some #'getenv (sumibi-provider-get :api-key-env)))
 
    ;; GPG経由でauth-sourceから取得
    ((eq sumibi-api-key-source 'auth-source-gpg)
@@ -964,7 +988,6 @@ loginは 'apikey' を想定."
 	(insert "<h2>Custom Variables</h2>\n")
 	(let ((custom-vars '(sumibi-stop-chars
                              sumibi-current-model
-                             sumibi-model-list
                              sumibi-history-stack-limit
                              sumibi-api-timeout
                              sumibi-threshold-letters-of-long-sentence
@@ -2726,18 +2749,20 @@ _ARG: (未使用)"
 
 (defun sumibi-switch-model (&optional _arg)
   "GPTのモデルを切り替える.
-引数_ARG: 未使用"
+引数_ARG: 未使用
+現在のプロバイダーのモデルリストから候補を表示する."
   (interactive "P")
   (if (getenv "SUMIBI_AI_MODEL")
       (message "!! 環境変数SUMIBI_AI_MODELが設定されているときは、モデルを動的にスイッチできません !!")
-    (let ((index 
-	   (cl-position-if
-	    (lambda (item)
-	      (and (stringp item)
-		   (string-match-p sumibi-current-model item)))
-	    sumibi-model-list)))
+    (let* ((models (sumibi-provider-get :model-list))
+           (index
+	    (cl-position-if
+	     (lambda (item)
+	       (and (stringp item)
+		    (string-match-p (sumibi-ai-model) item)))
+	     models)))
       (let ((result
-	     (popup-menu* sumibi-model-list
+	     (popup-menu* models
 			  :scroll-bar t
 			  :margin t
 			  :keymap sumibi-popup-menu-keymap
