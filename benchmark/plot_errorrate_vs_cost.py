@@ -40,6 +40,7 @@ MASTER_COST: Dict[str, float] = {
     "gemini-2.5-pro": 0.001625,
     "gemini-3-pro-preview": 0.001625,  # 推定値 (gemini-2.5-proベース、プレビュー価格未公開)
     "gemini-3-flash-preview": 0.00085,  # $0.50 input + $3.00 output → (500×0.50 + 200×3.00)/1M = $0.85/1K
+    "gemini-3.1-flash-lite-preview": 0.000425,  # $0.25 input + $1.50 output → (500×0.25 + 200×1.50)/1M = $0.425/1K
     "gemma-3-12b-it-qat": 0.0001,
     "claude-opus-4-1-20250805": 0.0225,
     "claude-opus-4-20250514": 0.0225,
@@ -50,6 +51,7 @@ MASTER_COST: Dict[str, float] = {
     "gpt-5": 0.002625,
     "gpt-5.1": 0.002625,
     "gpt-5.2": 0.003675,  # $1.75 input + $14 output → (500×1.75 + 200×14)/1M = $3.675/1K (GPT-5.1より40%高い)
+    "gpt-5.4": 0.004250,  # $2.50 input + $15 output → (500×2.50 + 200×15)/1M = $4.250/1K
     "gpt-oss-120b(low)": 0.00196,
     "llm-jp-3.1-13b-instruct4": 0.0001,
     "llm-jp-3.1-8x13b-instruct4": 0.0002,
@@ -72,6 +74,7 @@ COLOR_MAP: Dict[str, str] = {
     "gemini-2.5-pro": "gray",
     "gemini-3-pro-preview": "dimgray",
     "gemini-3-flash-preview": "steelblue",
+    "gemini-3.1-flash-lite-preview": "lightsteelblue",
     "gemma-3-12b-it-qat": "wheat",
     "claude-opus-4-1-20250805": "mediumpurple",
     "claude-opus-4-20250514": "blueviolet",
@@ -82,6 +85,7 @@ COLOR_MAP: Dict[str, str] = {
     "gpt-5": "seagreen",
     "gpt-5.1": "limegreen",
     "gpt-5.2": "chartreuse",
+    "gpt-5.4": "lime",
     "gpt-oss-120b(low)": "olive",
     "llm-jp-3.1-13b-instruct4": "coral",
     "llm-jp-3.1-8x13b-instruct4": "salmon",
@@ -99,6 +103,7 @@ DATA_V24: Dict[str, Dict[str, float]] = {
     "gemini-2.5-pro": {"cer": 0.048225, "elapsed": 78.868088},
     "gemini-3-pro-preview": {"cer": 0.016123, "elapsed": 43.236321},
     "gemini-3-flash-preview": {"cer": 0.041088, "elapsed": 9.291274},
+    "gemini-3.1-flash-lite-preview": {"cer": 0.132824, "elapsed": 3.103779},
     "gemma-3-12b-it-qat": {"cer": 0.730364, "elapsed": 2.018562},
     "gpt-4.1-mini": {"cer": 0.308427, "elapsed": 1.597734},
     "gpt-4.1": {"cer": 0.117064, "elapsed": 2.704047},
@@ -117,6 +122,7 @@ DATA_V24: Dict[str, Dict[str, float]] = {
     "gpt-5": {"cer": 0.130744, "elapsed": 3.197243},
     "gpt-5.1": {"cer": 0.114609, "elapsed": 2.965748},
     "gpt-5.2": {"cer": 0.106882, "elapsed": 1.071368},
+    "gpt-5.4": {"cer": 0.076598, "elapsed": 2.215574},
     "gpt-oss-120b(low)": {"cer": 0.591938, "elapsed": 17.565630},
     "llm-jp-3.1-13b-instruct4": {"cer": 0.914891, "elapsed": 2.577443},
     "llm-jp-3.1-8x13b-instruct4": {"cer": 0.735276, "elapsed": 12.738874},

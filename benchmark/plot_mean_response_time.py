@@ -86,6 +86,8 @@ def get_color_for_model(model_name: str) -> str:
         return "darkgray"
     elif model_name.startswith("gemini-2.5-pro"):
         return "gray"
+    elif model_name.startswith("gemini-3.1-flash-lite"):
+        return "lightsteelblue"
     elif model_name.startswith("gemini-3-flash-preview"):
         return "steelblue"
     elif model_name.startswith("gemma"):
@@ -107,6 +109,8 @@ def get_color_for_model(model_name: str) -> str:
             return "forestgreen"
     elif model_name.startswith("gpt-5-nano"):
         return "darkgreen"
+    elif model_name.startswith("gpt-5.4"):
+        return "lime"
     elif model_name.startswith("gpt-5"):
         if "medium" in model_name:
             return "green"
