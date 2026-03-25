@@ -124,6 +124,12 @@ def get_color_for_model(model_name: str) -> str:
         return "coral" if "_hiragana" not in model_name else "lightsalmon"
     elif model_name.startswith("llm-jp"):
         return "salmon"
+    elif model_name.startswith("google_ime_native"):
+        return "darkorange"
+    elif model_name.startswith("google_ime_cgi"):
+        return "gold"
+    elif model_name.startswith("mozc"):
+        return "orange"
     else:
         return "steelblue"
 
