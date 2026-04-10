@@ -1567,6 +1567,68 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2).
 	       (goto-char (marker-position saved-marker))))))
      deferred-func2)))
 
+(defconst sumibi-related-words-max-input-length 10
+  "関連語候補機能が発動する入力文字数の上限。")
+
+(defun sumibi--parse-related-words (text)
+  "関連語のLLMレスポンスTEXTをパースする.
+TEXT: 「類義語: w1 w2 w3\\n反対語: ...\\nフォーマル: ...」形式の文字列。
+戻り値: ((\"語\" . \"類義語\") ...) の形式のリスト。
+LLMがエラーを返した場合や形式に合わない場合は nil を返す。"
+  (let ((result '())
+        (lines (split-string (or text "") "[\n\r]+" t))
+        (sep "[ 　,、/・]+"))
+    (dolist (line lines)
+      (cond
+       ((string-match "^[[:space:]]*類義語[[:space:]]*[:：][[:space:]]*\\(.+\\)$" line)
+        (dolist (w (split-string (match-string 1 line) sep t "[[:space:]]+"))
+          (push (cons w "類義語") result)))
+       ((string-match "^[[:space:]]*反対語[[:space:]]*[:：][[:space:]]*\\(.+\\)$" line)
+        (dolist (w (split-string (match-string 1 line) sep t "[[:space:]]+"))
+          (push (cons w "反対語") result)))
+       ((string-match "^[[:space:]]*フォーマル[[:space:]]*[:：][[:space:]]*\\(.+\\)$" line)
+        (dolist (w (split-string (match-string 1 line) sep t "[[:space:]]+"))
+          (push (cons w "フォーマル") result)))))
+    (nreverse result)))
+
+(defun sumibi-get-related-words (word)
+  "WORDの意味的関連語（類義語・反対語・フォーマル表現）を取得する.
+WORD: 日本語の語彙（例: \"美しい\"）
+戻り値: ((\"綺麗な\" . \"類義語\") ... (\"醜い\" . \"反対語\") ... (\"優美な\" . \"フォーマル\") ...)
+各カテゴリ最大3件。LLMが異常を返した場合は nil を返す。"
+  (sumibi-debug-print (format "sumibi-get-related-words(%s)\n" word))
+  (condition-case err
+      (sumibi-openai-http-post
+       (list
+        (cons "system"
+              (concat
+               "あなたは日本語の語彙の関連語を返すアシスタントです。"
+               "与えられた語彙に対して、類義語3個、反対語3個、フォーマル表現3個を列挙してください。"
+               "出力形式は以下を厳密に守ってください。注釈や説明は一切付けないでください。\n"
+               "類義語: 語1 語2 語3\n"
+               "反対語: 語1 語2 語3\n"
+               "フォーマル: 語1 語2 語3"))
+        (cons "user"
+              "関連語を列挙してください。: 美しい")
+        (cons "assistant"
+              "類義語: 綺麗な 麗しい 華やかな\n反対語: 醜い 不細工な みすぼらしい\nフォーマル: 優美な 端麗な 佳麗な")
+        (cons "user"
+              "関連語を列挙してください。: 速い")
+        (cons "assistant"
+              "類義語: 素早い 迅速な 俊敏な\n反対語: 遅い 鈍い のろい\nフォーマル: 迅速 敏捷 急速")
+        (cons "user"
+              (format "関連語を列挙してください。: %s" word)))
+       1
+       (lambda (json-str)
+         (let* ((json-obj (json-parse-string json-str))
+                (text (car (sumibi-analyze-openai-json-obj json-obj 1))))
+           (sumibi--parse-related-words text)))
+       (lambda (_json-str) nil)
+       nil)
+    (error
+     (sumibi-debug-print (format "sumibi-get-related-words error: %s\n" err))
+     nil)))
+
 (defun sumibi-kanji-to-english (kanji arg-n deferred-func2)
   "日本語の文章を、**OpenAI 互換** サーバーを使って英語に翻訳します。
 KANJI: \"私の名前は中野です。\" のような文字列
@@ -1665,14 +1727,14 @@ KOUHO-LST: (\"にほんご\" \"ニホンゴ\") のようなリスト.
 ROMAN: \"日本語\" のような変換済の文字列
 DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
   (let* ((lst (sumibi-kanji-to-yomigana roman deferred-func2))
-	 (extended-lst 
+	 (extended-lst
           (sumibi-supplement-kouho lst))
 	 (kouho-lst
           (-map
            (lambda (x)
              (list (car x)
                    (sumibi--annotation-label (car x) (+ 1 (cdr x)))
-                   0 
+                   0
                    (sumibi-determine-candidate-type (car x))
                    (cdr x)))
            (-zip-pair
@@ -1683,10 +1745,28 @@ DEFERRED-FUNC2: 非同期呼び出し時のコールバック関数(2)."
 	      20 21 22 23 24 25 26 27 28 29
 	      30 31 32 33 34 35 36 37 38 39
 	      40 41 42 43 44 45 46 47 48 49
-	      )))))
+	      ))))
+	 ;; 関連語候補（10文字以内かつ同期モード時のみ）
+	 (related-kouho-lst
+	  (when (and (null deferred-func2)
+		     (<= (length roman) sumibi-related-words-max-input-length))
+	    (let* ((related (sumibi-get-related-words roman))
+		   (base-idx (length kouho-lst))
+		   (idx -1))
+	      (-map
+	       (lambda (pair)
+		 (setq idx (1+ idx))
+		 (list (car pair)
+		       (cdr pair)
+		       0
+		       (sumibi-determine-candidate-type (car pair))
+		       (+ base-idx idx)))
+	       related)))))
     (append
      kouho-lst
-     (list (list roman "原文まま" 0 'l (length kouho-lst))))))
+     related-kouho-lst
+     (list (list roman "原文まま" 0 'l
+		 (+ (length kouho-lst) (length related-kouho-lst)))))))
 
 (defun sumibi-alphabet-henkan (roman surrounding-text arg-n deferred-func2)
   "アルファベット(ローマ字or英語の文章)からカナ漢字混じり文へ変換する.
