@@ -349,6 +349,46 @@ make result_ver2.4.0/gpt-4.1_katakana.json
 
 ローカルLLMでもベンチマークデータを取得しました。120B(1200億パラメータ)までのモデルを試し、当初はローマ字入力（従来方式）では実用的に使えるモデルがありませんでした。しかし、**GitHub Issue 96の実験により、ひらがな入力を使用することで劇的にエラー率が改善することが判明しました**。さらに2026年4月、**`google/gemma-4-e4b` により実用レベルに到達**しました（上記参照）。
 
+## Context Length がレスポンス速度に与える影響 (Issue #143)
+
+`mlx-community/gemma-4-26b-a4b-it` を LM Studio で実行した際、Context Length 設定を変えるとレスポンス速度がどう変わるかを調査します。  
+計測モードは **hiragana_input のみ**、AJIMEE-Bench (JWTD_v2, 200件) を使用。
+
+### 計測結果
+
+<!-- ベンチマーク完了後にここへ結果テーブルを追記 -->
+
+| Context Length | CER (%) | 中央値 (sec) | p95 (sec) | 実用基準 (≤2s) |
+|---------------|---------|------------|----------|---------------|
+| 1024          | TBD     | TBD        | TBD      | TBD           |
+| 2048          | TBD     | TBD        | TBD      | TBD           |
+| 4096          | TBD     | TBD        | TBD      | TBD           |
+| 8192          | TBD     | TBD        | TBD      | TBD           |
+
+### グラフ
+
+<!-- 計測完了後に画像を追記 -->
+`make ctx_plot` で `images/plot_context_length_vs_response_time.png` を生成します。
+
+### 計測手順
+
+```bash
+# LM Studio で mlx-community/gemma-4-26b-a4b-it をロードし、
+# Context Length を 1024 に設定してサーバーを起動した後:
+cd benchmark
+make ctx1024
+
+# 同様に 2048, 4096, 8192 と繰り返す
+make ctx2048
+make ctx4096
+make ctx8192
+
+# グラフ生成
+make ctx_plot
+```
+
+---
+
 ## 入力形式による精度の違い（GitHub Issue 96の成果）
 
 3つの入力形式（romaji_direct_input、hiragana_input、katakana_input）で比較実験を実施した結果：
@@ -446,10 +486,29 @@ export SUMIBI_AI_MODEL="gpt-4.1-mini"
 
 いったんコミットしてください。
 
-gemma 4 26B A4B Instructを試してみたいです。可能性はありますか?
+## ⭐ 2026年4月: Context Length が精度・速度に与える影響 (Issue #143)
 
+`mlx-community/gemma-4-26b-a4b-it` を対象に、LM Studio の Context Length 設定 (512 / 1024 / 2048 / 4096 / 8192) を変えてベンチマークを計測しました。入力モードは hiragana_input のみ、AJIMEE-Bench 200件。
 
-モデルカードはこれです。
-https://lmstudio.ai/models/google/gemma-4-26b-a4b
+### 実測ベンチマーク結果
 
-ダウンロードを開始します。
+| Context Length | CER (%) | 中央値 (秒) | p95 (秒) |
+|---------------|---------|-----------|---------|
+| 512           | 19.7%   | 2.13      | 4.12    |
+| 1024          | 18.8%   | 2.19      | 4.51    |
+| 2048          | 18.4%   | 2.13      | 4.28    |
+| 4096          | 18.5%   | 2.14      | 4.35    |
+| 8192          | 18.6%   | 2.16      | 4.29    |
+
+### グラフ
+
+![Context Length vs Response Time & CER](../images/plot_context_length_vs_response_time.png)
+
+### 考察と結論
+
+- **CER はすべての Context Length で約19〜20% と変化なし**。Context Length を増やしても日本語変換精度は改善しない
+- **レスポンス時間も全体的に大きな差はなく、2.1〜2.2秒前後**で安定している
+- **512 トークンが最速**（中央値 2.13秒、p95 4.12秒）で、1024 でわずかにp95が増加する
+- **2048 以上では差がほぼなく、Context Length を増やしても速度劣化は起きない**
+
+**結論**: IME用途においては **Context Length 512〜2048 が最適なバランス**。精度への影響はなく、512 がレスポンス時間の観点でわずかに有利。8192 まで増やしても速度劣化はないため、他の用途と共存させる場合は 2048 程度を推奨する。
