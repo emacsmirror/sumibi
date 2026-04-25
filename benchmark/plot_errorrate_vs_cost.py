@@ -52,6 +52,7 @@ MASTER_COST: Dict[str, float] = {
     "gpt-5.1": 0.002625,
     "gpt-5.2": 0.003675,  # $1.75 input + $14 output → (500×1.75 + 200×14)/1M = $3.675/1K (GPT-5.1より40%高い)
     "gpt-5.4": 0.004250,  # $2.50 input + $15 output → (500×2.50 + 200×15)/1M = $4.250/1K
+    "gpt-5.5": 0.008500,  # $5.00 input + $30 output → (500×5.00 + 200×30)/1M = $8.500/1K
     "gpt-oss-120b(low)": 0.00196,
     "llm-jp-3.1-13b-instruct4": 0.0001,
     "llm-jp-3.1-8x13b-instruct4": 0.0002,
@@ -89,6 +90,7 @@ COLOR_MAP: Dict[str, str] = {
     "gpt-5.1": "limegreen",
     "gpt-5.2": "chartreuse",
     "gpt-5.4": "lime",
+    "gpt-5.5": "yellow",
     "gpt-oss-120b(low)": "olive",
     "llm-jp-3.1-13b-instruct4": "coral",
     "llm-jp-3.1-8x13b-instruct4": "salmon",
@@ -129,6 +131,7 @@ DATA_V24: Dict[str, Dict[str, float]] = {
     "gpt-5.1": {"cer": 0.114609, "elapsed": 2.965748},
     "gpt-5.2": {"cer": 0.106882, "elapsed": 1.071368},
     "gpt-5.4": {"cer": 0.076598, "elapsed": 2.215574},
+    "gpt-5.5": {"cer": 0.026855, "elapsed": 4.234000},
     "gpt-oss-120b(low)": {"cer": 0.591938, "elapsed": 17.565630},
     "llm-jp-3.1-13b-instruct4": {"cer": 0.914891, "elapsed": 2.577443},
     "llm-jp-3.1-8x13b-instruct4": {"cer": 0.735276, "elapsed": 12.738874},
@@ -241,7 +244,7 @@ def main():
     parser = argparse.ArgumentParser(description="Plot error rate vs cost (v2.4.0)")
     parser.add_argument("-o", "--output", help="Output image file path")
     parser.add_argument("--range", type=int, default=0, choices=[0, 1],
-                        help="Axis range mode: 0=default (0-70%%, auto x), 1=zoomed (0-40%%, 0-0.008$)")
+                        help="Axis range mode: 0=default (0-70%%, auto x), 1=zoomed (0-40%%, 0-0.010$)")
     args = parser.parse_args()
 
     plt.figure(figsize=(8, 6))
@@ -277,7 +280,7 @@ def main():
     elif args.range == 1:
         # ズーム範囲
         plt.ylim(0, 40)
-        plt.xlim(0, 0.008)
+        plt.xlim(0, 0.010)
 
     # 座標スケールを線形のまま維持（必要に応じて変更可）
 
