@@ -2136,27 +2136,129 @@ Argument SELECT-MODE：選択状態"
 
 
 
+(defconst sumibi--related-words-action-label "[類義語・反対語を表示]"
+  "関連語表示アクション候補のラベル.")
+
+(defconst sumibi--related-words-action-annotation "アクション"
+  "関連語表示アクション候補のアノテーション.")
+
+(defun sumibi--make-related-words-action-candidate (id)
+  "関連語表示アクション候補を作る. ID は候補の通し番号."
+  (list sumibi--related-words-action-label
+        sumibi--related-words-action-annotation
+        0 'l id))
+
+(defun sumibi--fetch-and-append-related-words ()
+  "候補1の文字列を対象に関連語を取得し、sumibi-henkan-kouho-list に追加する.
+追加に成功したら t、それ以外は nil を返す."
+  (let* ((first (nth 0 sumibi-henkan-kouho-list))
+         (target (and first (nth sumibi-tango-index first))))
+    (cond
+     ((or (null target) (string-empty-p target))
+      (message "関連語の対象語が取得できませんでした")
+      nil)
+     (t
+      (message "関連語を取得中... (%s)" target)
+      (let ((related (sumibi-get-related-words target)))
+        (cond
+         ((null related)
+          (message "関連語が取得できませんでした")
+          nil)
+         (t
+          (let* ((base-idx (length sumibi-henkan-kouho-list))
+                 (idx -1)
+                 (new-entries
+                  (mapcar
+                   (lambda (pair)
+                     (setq idx (1+ idx))
+                     (list (car pair)
+                           (cdr pair)
+                           0
+                           (sumibi-determine-candidate-type (car pair))
+                           (+ base-idx idx)))
+                   related)))
+            (setq sumibi-henkan-kouho-list
+                  (append sumibi-henkan-kouho-list new-entries))
+            (setq sumibi-cand-len (length sumibi-henkan-kouho-list))
+            (message "関連語を %d 件追加しました" (length related))
+            t))))))))
+
+(defun sumibi--popup-format-candidates (candidates)
+  "ポップアップ表示用に CANDIDATES を整形した文字列リストを返す."
+  (mapcar
+   (lambda (x)
+     (concat
+      (nth sumibi-tango-index x)
+      "   ; "
+      (nth sumibi-annotation-index x)))
+   candidates))
+
+(defun sumibi--popup-fit-height (list-length)
+  "LIST-LENGTH に合わせた popup-menu* の :height 値を返す.
+画面端でも popup が画面外にはみ出さないよう、ウィンドウの有効高さを
+超えないように上限を設ける."
+  (let* ((window-h (max 1 (- (window-text-height)
+                             (if mode-line-format 1 0)
+                             (if header-line-format 1 0))))
+         (cap (max 1 (- window-h 1))))
+    (min list-length cap)))
+
+(defun sumibi--ensure-popup-space (popup-height)
+  "POPUP-HEIGHT 分の空きを現在行の下に確保するよう、必要なら recenter する.
+popup-menu* は内部で上開き/下開きを判定するが、ステータスバーに近い
+位置だと余白計算が破綻して画面外に出ることがあるため、明示的にスクロールする."
+  (let* ((window-h (max 1 (- (window-text-height)
+                             (if mode-line-format 1 0)
+                             (if header-line-format 1 0))))
+         (current-row (cdr (posn-col-row (posn-at-point))))
+         (need (+ popup-height 2)))
+    (when (and current-row
+               (< (- window-h current-row) need))
+      (recenter (max 0 (- window-h need))))))
+
+(defun sumibi--popup-show-with-related-words ()
+  "関連語追加後のポップアップを表示し、選択結果に応じて sumibi-cand-cur を更新する."
+  (let* ((lst (sumibi--popup-format-candidates sumibi-henkan-kouho-list))
+         (h (sumibi--popup-fit-height (length lst)))
+         (_ (sumibi--ensure-popup-space h))
+         (result
+          (popup-menu* lst
+                       :scroll-bar t
+                       :margin t
+                       :height h
+                       :keymap sumibi-popup-menu-keymap
+                       :initial-index sumibi-cand-cur)))
+    (when result
+      (let ((selected-word (car (split-string result " "))))
+        (setq sumibi-cand-cur (sumibi-find-by-tango selected-word))))))
+
 (defun sumibi-select-operation-inc ()
   "選択操作回数のインクリメント."
   (cl-incf sumibi-select-operation-times)
   (when (< 3 sumibi-select-operation-times)
     (sumibi-select-operation-reset)
-    (let* ((lst
-            (mapcar
-             (lambda (x)
-	       (concat
-                (nth sumibi-tango-index x)
-                "   ; "
-                (nth sumibi-annotation-index x)))
-             sumibi-henkan-kouho-list))
+    (let* ((augmented
+            (append sumibi-henkan-kouho-list
+                    (list (sumibi--make-related-words-action-candidate
+                           (length sumibi-henkan-kouho-list)))))
+           (lst (sumibi--popup-format-candidates augmented))
+           (h (sumibi--popup-fit-height (length lst)))
+           (_ (sumibi--ensure-popup-space h))
            (result
             (popup-menu* lst
                          :scroll-bar t
                          :margin t
+                         :height h
                          :keymap sumibi-popup-menu-keymap
                          :initial-index sumibi-cand-cur)))
-      (let ((selected-word (car (split-string result " "))))
-        (setq sumibi-cand-cur (sumibi-find-by-tango selected-word))))))
+      (when result
+        (let ((selected-word (car (split-string result " "))))
+          (cond
+           ((string= selected-word sumibi--related-words-action-label)
+            (when (sumibi--fetch-and-append-related-words)
+              (sumibi--popup-show-with-related-words)))
+           (t
+            (setq sumibi-cand-cur (sumibi-find-by-tango selected-word)))))))))
 
 
 
