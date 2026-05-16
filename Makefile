@@ -81,3 +81,7 @@ test:
 	      -L lisp \
 	      -l test/sumibi-related-words-test.el \
 	      -f ert-run-tests-batch-and-exit
+	emacs -batch -Q \
+	      -L lisp \
+	      -l test/sumibi-punctuation-debounce-test.el \
+	      -f ert-run-tests-batch-and-exit
