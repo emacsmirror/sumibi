@@ -85,3 +85,11 @@ test:
 	      -L lisp \
 	      -l test/sumibi-punctuation-debounce-test.el \
 	      -f ert-run-tests-batch-and-exit
+	emacs -batch -Q \
+	      -L lisp \
+	      -l test/sumibi-http-retry-test.el \
+	      -f ert-run-tests-batch-and-exit
+	emacs -batch -Q \
+	      -L lisp \
+	      -l test/sumibi-http-retry-integration-test.el \
+	      -f ert-run-tests-batch-and-exit
