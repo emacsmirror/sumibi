@@ -1274,13 +1274,16 @@ space between the marker and the text.  This prevents constructs like
       (message "%s" "Emacs version 28.1 or higher is required.")))))
 
 (defun sumibi-escape-for-json (str)
-  "引数STRで指定した、JSON文字列に含まれるバックスペース、ダブルクォーテーション、改行、タブをエスケープする."
+  "引数STRで指定した、JSON文字列に含まれるバックスペース、ダブルクォーテーション、改行、復帰、タブをエスケープする.
+復帰 (CR, ^M) はエスケープしないと JSON 文字列リテラル中に生の制御文字が残り、
+リクエストが不正な JSON になって変換に失敗する (Issue #152)。"
   (let* ((str1 (string-replace "\\" "" str))
          (str2 (string-replace "\"" "\\\"" str1))
          (str3 (string-replace "\n" "\\n" str2))
-         (str4 (string-replace "	" "\\t" str3))
-         (str5 (unicode-escape str4)))
-    str5))
+         (str4 (string-replace "\r" "\\r" str3))
+         (str5 (string-replace "	" "\\t" str4))
+         (str6 (unicode-escape str5)))
+    str6))
 
 (defun sumibi-parse-http-body (buf)
   "Pickup http status and body string from buf string.
