@@ -310,11 +310,22 @@ make result_ver2.4.0/gpt-4.1_katakana.json
 | katakana_input | 27.5% | 2.16秒 | 2.06秒 |
 | romaji_direct_input | 44.5% | 2.17秒 | 2.12秒 |
 
+**google/gemma-4-12b** (Dense 12B)
+
+| 入力形式 | CER | 平均応答時間 (95%ile) | 中央値応答時間 |
+|---|---|---|---|
+| **hiragana_input** | **22.0%** | **10.16秒** | **9.80秒** |
+| katakana_input | 33.9% | 10.43秒 | 10.05秒 |
+| romaji_direct_input | 54.4% | 11.63秒 | 11.00秒 |
+
+※ LM Studio (Enable thinking OFF) で3方式とも計測済み。Dense 12B モデルとして CER は gemma-4-e4b と gemma-4-26b-a4b の中間に位置しますが、応答時間は中央値 約10秒とシリーズ内で最も遅く、MoE版 (26b-a4b-it-mlx: 約2秒) やe4b (約2秒) に対し速度面で劣ります。
+
 - ローマ字入力からひらがな入力への切り替えで **約60%のエラー率削減** を達成
 - 従来のローカルLLMベスト (gemma-3n-e4b-it-mlx: CER 37.0%) を **大幅に上回る精度**
 - `gemma-4-e4b` は中央値 1.75秒で応答し、実用基準である「2秒以内」を達成
 - **`gemma-4-26b-a4b` (MoE) は hiragana CER 15.6%** で、Gemma 4 E4B のさらに約40%改善。MoEアーキテクチャによりアクティブパラメータはわずか4BのためMacBook Air 24GBで動作可能
 - **`mlx-community/gemma-4-26b-a4b-it` (MLX版) はApple Silicon最適化により応答時間が約2.5倍高速化**（5.60秒 → 2.21秒）。CER は 15.6% → 18.3% とわずかに悪化するものの、中央値 2.12秒で実用水準をほぼ達成。Apple Silicon環境では体感パフォーマンスが大きく向上
+- **`google/gemma-4-12b` (Dense 12B) は hiragana CER 22.0%** で、精度は gemma-4-e4b (26.0%) と gemma-4-26b-a4b (15.6%) の中間に位置。ただし応答時間は中央値 約9.8秒とシリーズ内で最も遅く、e4b や MLX版26b（いずれも約2秒）に対し速度面で大きく劣る。「Dense 12Bらしく順当な精度だが、より軽量・高速な e4b / MoE版26b が上位互換に近く、積極的に選ぶ理由は乏しい」位置づけ
 
 ### 実使用での体感
 
