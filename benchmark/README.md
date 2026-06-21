@@ -318,7 +318,17 @@ make result_ver2.4.0/gpt-4.1_katakana.json
 | katakana_input | 33.9% | 10.43秒 | 10.05秒 |
 | romaji_direct_input | 54.4% | 11.63秒 | 11.00秒 |
 
+**gemma-4-12b-it-mlx** (Dense 12B / MLX最適化版)
+
+| 入力形式 | CER | 平均応答時間 (95%ile) | 中央値応答時間 |
+|---|---|---|---|
+| **hiragana_input** | **17.1%** | **5.76秒** | **5.19秒** |
+| katakana_input | 28.2% | 5.35秒 | 4.95秒 |
+| romaji_direct_input | 44.2% | 5.60秒 | 4.90秒 |
+
 ※ LM Studio (Enable thinking OFF) で3方式とも計測済み。Dense 12B モデルとして CER は gemma-4-e4b と gemma-4-26b-a4b の中間に位置しますが、応答時間は中央値 約10秒とシリーズ内で最も遅く、MoE版 (26b-a4b-it-mlx: 約2秒) やe4b (約2秒) に対し速度面で劣ります。
+
+※ **MLX版 (`gemma-4-12b-it-mlx`) はApple Silicon最適化により、非MLX版から速度・精度の両面で改善**。応答時間は中央値 9.80秒 → 5.19秒と**約1.9倍高速化**し、hiragana CER も 22.0% → 17.1% と**改善**しました（26b版MLXではCERがわずかに悪化したのとは対照的）。ただし中央値 約5秒は依然として実用基準の2秒を超えており、e4b や MoE版26b（いずれも約2秒）には速度面で及びません。なお `gemma-4-12b-it-mlx` はアーキテクチャ `gemma4_unified` を採用しており、LM Studio の MLXランタイム **mlx-llm 1.9.0 (beta) 以降** が必要です（1.8.5 ではロードに失敗します）。
 
 - ローマ字入力からひらがな入力への切り替えで **約60%のエラー率削減** を達成
 - 従来のローカルLLMベスト (gemma-3n-e4b-it-mlx: CER 37.0%) を **大幅に上回る精度**
@@ -326,6 +336,7 @@ make result_ver2.4.0/gpt-4.1_katakana.json
 - **`gemma-4-26b-a4b` (MoE) は hiragana CER 15.6%** で、Gemma 4 E4B のさらに約40%改善。MoEアーキテクチャによりアクティブパラメータはわずか4BのためMacBook Air 24GBで動作可能
 - **`mlx-community/gemma-4-26b-a4b-it` (MLX版) はApple Silicon最適化により応答時間が約2.5倍高速化**（5.60秒 → 2.21秒）。CER は 15.6% → 18.3% とわずかに悪化するものの、中央値 2.12秒で実用水準をほぼ達成。Apple Silicon環境では体感パフォーマンスが大きく向上
 - **`google/gemma-4-12b` (Dense 12B) は hiragana CER 22.0%** で、精度は gemma-4-e4b (26.0%) と gemma-4-26b-a4b (15.6%) の中間に位置。ただし応答時間は中央値 約9.8秒とシリーズ内で最も遅く、e4b や MLX版26b（いずれも約2秒）に対し速度面で大きく劣る。「Dense 12Bらしく順当な精度だが、より軽量・高速な e4b / MoE版26b が上位互換に近く、積極的に選ぶ理由は乏しい」位置づけ
+- **`gemma-4-12b-it-mlx` (Dense 12B / MLX版) は非MLX版を速度・精度の両面で上回る**。中央値応答時間は 9.80秒 → 5.19秒と**約1.9倍高速化**し、hiragana CER も 22.0% → 17.1% に**改善**。MLX版26b (26b-a4b-it-mlx) ではCERがわずかに悪化したのに対し、12bではMLX化で精度も向上した点が対照的。ただし中央値 約5秒は実用基準の2秒を依然超えており、Dense 12Bの宿命として e4b / MoE版26b の高速性には及ばない。なお新アーキテクチャ `gemma4_unified` のため LM Studio の mlx-llm 1.9.0 (beta) 以降が必要
 
 ### 実使用での体感
 
