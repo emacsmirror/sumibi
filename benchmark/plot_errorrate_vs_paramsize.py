@@ -24,6 +24,7 @@ MODEL_PARAM_SIZES = {
     'gemma-3n-e2b-it-mlx': 2,
     'gemma-4-e4b': 4,
     'gemma-4-12b': 12,
+    'gemma-4-12b-it-mlx': 12,
     'gemma-4-26b-a4b': 26,
     'gemma-4-26b-a4b-it-mlx': 26,
     'japanese-stablelm-instruct-gamma-7b': 7,
