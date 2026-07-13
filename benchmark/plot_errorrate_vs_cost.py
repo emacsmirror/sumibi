@@ -53,6 +53,8 @@ MASTER_COST: Dict[str, float] = {
     "gpt-5.2": 0.003675,  # $1.75 input + $14 output → (500×1.75 + 200×14)/1M = $3.675/1K (GPT-5.1より40%高い)
     "gpt-5.4": 0.004250,  # $2.50 input + $15 output → (500×2.50 + 200×15)/1M = $4.250/1K
     "gpt-5.5": 0.008500,  # $5.00 input + $30 output → (500×5.00 + 200×30)/1M = $8.500/1K
+    "gpt-5.6-terra": 0.004250,  # $2.50 input + $15 output → (500×2.50 + 200×15)/1M = $4.250/1K
+    "gpt-5.6-luna": 0.001700,   # $1.00 input + $6.00 output → (500×1.00 + 200×6.00)/1M = $1.700/1K
     "gpt-oss-120b(low)": 0.00196,
     "llm-jp-3.1-13b-instruct4": 0.0001,
     "llm-jp-3.1-8x13b-instruct4": 0.0002,
@@ -91,6 +93,8 @@ COLOR_MAP: Dict[str, str] = {
     "gpt-5.2": "chartreuse",
     "gpt-5.4": "lime",
     "gpt-5.5": "yellow",
+    "gpt-5.6-terra": "gold",
+    "gpt-5.6-luna": "khaki",
     "gpt-oss-120b(low)": "olive",
     "llm-jp-3.1-13b-instruct4": "coral",
     "llm-jp-3.1-8x13b-instruct4": "salmon",
@@ -132,6 +136,8 @@ DATA_V24: Dict[str, Dict[str, float]] = {
     "gpt-5.2": {"cer": 0.106882, "elapsed": 1.071368},
     "gpt-5.4": {"cer": 0.076598, "elapsed": 2.215574},
     "gpt-5.5": {"cer": 0.026855, "elapsed": 4.234000},
+    "gpt-5.6-terra": {"cer": 0.073874, "elapsed": 0.985698},
+    "gpt-5.6-luna": {"cer": 0.150871, "elapsed": 0.933539},
     "gpt-oss-120b(low)": {"cer": 0.591938, "elapsed": 17.565630},
     "llm-jp-3.1-13b-instruct4": {"cer": 0.914891, "elapsed": 2.577443},
     "llm-jp-3.1-8x13b-instruct4": {"cer": 0.735276, "elapsed": 12.738874},
