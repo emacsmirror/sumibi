@@ -145,6 +145,7 @@ python3 sumibi_bench.py evaluation_items.json output_katakana.json katakana_inpu
   - gpt-5, gpt-5-mini, gpt-5-nanoはreasoning_effortがminimal固定です。(sumibi.elでもminimalを利用)
   - gpt-5.1, gpt-5.2, gpt-5.4, gpt-5.5はreasoning_effortがnone固定です。(sumibi.elでもnoneを利用)
   - `(low)`というサフィックスが付いているモデルは、reasoning_effortをlow指定したケースを指します。
+  - gpt-5.6-terra, gpt-5.6-lunaはreasoning_effortがnone固定です（`minimal` は非対応。thinking無効化のため `none` を明示指定）。
 
 ### エラー率 vs コスト（全体表示）
 ![plot1](../images/plot_errorrate_vs_cost_1000x600.png)
@@ -167,6 +168,8 @@ python3 sumibi_bench.py evaluation_items.json output_katakana.json katakana_inpu
 | `gpt-3.5-turbo` | 0.83 s | 64.5 % | $0.00055 | 高速だが誤り率が高い |
 | `gpt-4o` | 0.98 s | 13.0 % | $0.0065 | 高精度だが高価 |
 | `gpt-4.1-mini` | 0.98 s | 30.8 % | $0.00052 | 中コスト・中精度 |
+| `gpt-5.6-luna` | 0.99 s | 15.1 % | $0.00170 | **GPT-5.6系で最速**。低コストで応答性最高クラス |
+| `gpt-5.6-terra` | 1.05 s | 7.4 % | $0.004250 | **gpt-5.4相当の精度を高速化**（1.21s→1.05s） |
 | `gpt-4o-mini` | 1.06 s | 51.5 % | $0.000195 | 低価格だが精度が課題 |
 | `gpt-5-nano` | 1.14 s | 89.4 % | $0.000105 | 超低コストだが精度が不十分 |
 | `gpt-5.4` | 1.21 s | 7.7 % | $0.004250 | **実用的なGPT-5系では最高精度**。応答も高速 |
@@ -201,6 +204,10 @@ python3 sumibi_bench.py evaluation_items.json output_katakana.json katakana_inpu
 
 なお `gpt-5.5` はGPT-5系最高精度（CER 2.7%）を達成しているが、4.23sの応答時間はIMEとして実用域を超えており、API高速化が待たれる。
 
+GPT-5.6系の新モデルは実用速度で有望：
+- `gpt-5.6-terra`（1.05s / CER 7.4% / $0.004250）─ gpt-5.4と同精度・同価格を維持しつつ応答時間を約20%短縮。GPT-5系の実用モデルの新たな候補
+- `gpt-5.6-luna`（0.99s / CER 15.1% / $0.00170）─ GPT-5.6系で最速かつ低コスト。ひらがな入力では CER 3.8% と大幅改善するため、次節も参照
+
 # 入力形式による精度の違い（GitHub Issue #96 の成果）
 
 異なる入力形式（ローマ字、ひらがな、カタカナ）がLLMの変換精度に与える影響を調査しました。その結果、**ローカルLLMだけでなく、各種フロンティアモデルにおいても、ひらがな入力に変更することで劇的に変換精度が改善する**ことが実証されました。
@@ -212,6 +219,8 @@ python3 sumibi_bench.py evaluation_items.json output_katakana.json katakana_inpu
 | gemini-3-pro-preview | **1.6%** | 2.1% | 1.9% | +19%増加 |
 | gemini-2.5-pro | 5.9% | 4.0% | **2.2%** | **63%削減** |
 | gpt-5.5 | **2.7%** | **2.6%** | 2.8% | +4%増加 |
+| gpt-5.6-terra | 7.4% | 6.5% | **3.0%** | **60%削減** |
+| gpt-5.6-luna | 15.1% | 10.0% | **3.8%** | **75%削減** |
 | gemini-3-flash-preview | 4.1% | **3.8%** | 4.1% | 0% |
 | gpt-5.1 | 11.5% | 7.8% | **4.9%** | **57%削減** |
 | gpt-4.1 | 11.7% | 9.0% | **5.0%** | **57%削減** |
@@ -241,10 +250,12 @@ python3 sumibi_bench.py evaluation_items.json output_katakana.json katakana_inpu
 
 ## 主要な知見
 
-1. **ほぼすべてのモデルでひらがな入力が最高精度**: 調査した20モデル中、フロンティアの最上位モデル数種を除きひらがな入力が最も低いエラー率を記録
-2. **フロンティアモデルでも49-63%の改善**: 最新のGPTやGeminiモデルでも、ひらがな入力により大幅な精度向上
-3. **カタカナ入力はローマ字とひらがなの中間**: モデルによって改善幅は異なるが、ひらがなほどの効果はない
-4. **日本語文脈の理解が鍵**: LLMは日本語文字列（ひらがな）を入力することで、文脈をより正確に理解できる
+1. **ほぼすべてのモデルでひらがな入力が最高精度**: 調査した多くのモデルで、ひらがな入力が最も低いエラー率を記録
+2. **フロンティアモデルでも49-75%の改善**: 最新のGPTやGeminiモデルでも、ひらがな入力により大幅な精度向上。特にgpt-5.6-lunaは75%削減という顕著な改善を示す
+3. **gemini-2.5-proが最高精度**: ひらがな入力で2.2%の最低エラー率を達成
+4. **カタカナ入力はローマ字とひらがなの中間**: モデルによって改善幅は異なるが、ひらがなほどの効果はない
+5. **日本語文脈の理解が鍵**: LLMは日本語文字列（ひらがな）を入力することで、文脈をより正確に理解できる
+6. **gpt-5.6-terra ひらがな入力の実用性**: CER 3.0%（gpt-5.5の2.8%に匹敵）を応答時間約1秒で実現し、IME用途で有望
 
 ![入力形式別エラー率比較](../images/plot_errorrate_vs_inputtype_1000x600.png)
 
