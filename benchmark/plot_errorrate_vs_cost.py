@@ -13,10 +13,11 @@ v2.4.0 ベンチマーク結果を散布図で表示する。
 from __future__ import annotations
 
 import argparse
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from adjustText import adjust_text
 
 # ---------------------------------------------------------------------------
 # マスタ情報 (コスト & 色)
@@ -161,11 +162,20 @@ def plot_version(
     face_filled: bool,
     zorder: int,
     annotate: bool = True,
+    x_range: Tuple[float, float] = None,
+    y_range: Tuple[float, float] = None,
 ):
     """一つのバージョンの散布図を描く
 
     annotate が True のときのみモデル名ラベルを表示する。
+    x_range / y_range を指定すると、範囲外の点はラベルを付けない
+    （散布図マーカー自体はプロットするが、adjustText の対象から外す）。
+    ラベルは adjustText で重なりを回避する。
+    戻り値: (texts, label_info) — label_info は [(text, marker_x, marker_y, color), ...] で、
+    adjust_text 後にマーカーとラベルを結ぶ接続線をモデル色で描画するために使う。
     """
+    texts: List = []
+    label_info: List = []
     for model, metrics in data.items():
         cost = MASTER_COST.get(model)
         if cost is None:
@@ -200,18 +210,47 @@ def plot_version(
                 zorder=zorder,
             )
 
-        # モデル名の注釈
+        # モデル名の注釈（adjustText で後で位置調整するため、Text オブジェクトを蓄積）
+        # 表示範囲外の点はラベルを付けない
+        # ラベル色は円と同色にし、adjustText 後に描く接続線もモデル色にすることで
+        # どのラベルがどの円に対応するか一目でわかるようにする
         if annotate:
-            plt.annotate(
-                model,
-                xy=(cost, cer_pct),
-                xytext=(5, 5),
-                textcoords="offset points",
-                ha="left",
-                va="bottom",
-                clip_on=False,
-                fontsize=8,
-            )
+            in_range = True
+            if x_range is not None and not (x_range[0] <= cost <= x_range[1]):
+                in_range = False
+            if y_range is not None and not (y_range[0] <= cer_pct <= y_range[1]):
+                in_range = False
+            if in_range:
+                text_color = _darken_for_readability(color)
+                t = plt.text(cost, cer_pct, model, fontsize=8, color=text_color, clip_on=False)
+                texts.append(t)
+                label_info.append((t, cost, cer_pct, text_color))
+
+    return texts, label_info
+
+
+# ---------------------------------------------------------------------------
+# 色ヘルパー
+# ---------------------------------------------------------------------------
+def _darken_for_readability(color_name: str) -> str:
+    """白背景で読みやすくするため、明るすぎる色は暗めの同系色に置き換える。"""
+    override = {
+        "palegreen": "darkgreen",
+        "lightgreen": "green",
+        "mediumspringgreen": "darkgreen",
+        "springgreen": "darkgreen",
+        "lightgray": "dimgray",
+        "silver": "dimgray",
+        "yellow": "darkgoldenrod",
+        "gold": "darkgoldenrod",
+        "khaki": "olive",
+        "lime": "darkgreen",
+        "chartreuse": "darkgreen",
+        "cyan": "darkcyan",
+        "pink": "deeppink",
+        "wheat": "saddlebrown",
+    }
+    return override.get(color_name, color_name)
 
 
 
@@ -255,27 +294,37 @@ def main():
 
     plt.figure(figsize=(8, 6))
 
+    # 軸範囲を先に決定してラベル配置に反映
+    if args.range == 1:
+        x_range = (0.0, 0.010)
+        y_range = (0.0, 40.0)
+    else:
+        x_range = None  # 自動
+        y_range = (0.0, 70.0)
+
     # v2.4.0 — 濃い塗りつぶし円（ラベルあり）
-    plot_version(
+    texts, label_info = plot_version(
         DATA_V24,
         "v2.4.0",
         alpha=1.0,
         face_filled=True,
         zorder=3,
         annotate=True,
+        x_range=x_range,
+        y_range=y_range,
     )
 
 
     # 軸設定
     plt.xlabel("Cost Per Request ($)")
     plt.ylabel("Error Rate (%)")
-    
+
     # タイトル設定
     if args.range == 1:
         plt.title("Error Rate vs Cost of LLM Model (v2.4.0) - Zoomed")
     else:
         plt.title("Error Rate vs Cost of LLM Model (v2.4.0)")
-    
+
     plt.grid(True, which="both", linestyle=":", linewidth=0.5)
 
     # 軸範囲設定
@@ -292,6 +341,36 @@ def main():
 
     # 凡例
     build_legend()
+
+    # ラベルの重なりを adjustText で回避
+    # 軸範囲を確定してから呼ぶ必要があるため、この位置で実行
+    # adjustText の arrowprops は全ラベル共通なので使わず、後で自前で色付き接続線を描画する
+    adjust_text(
+        texts,
+        expand_points=(1.4, 1.4),
+        expand_text=(1.2, 1.2),
+        force_text=(0.5, 0.5),
+        force_points=(0.3, 0.3),
+    )
+
+    # マーカーと移動後のラベルを結ぶ接続線をモデル色で描画
+    # （どのラベルがどの円に対応するか一目で分かるようにするため）
+    ax = plt.gca()
+    for t, marker_x, marker_y, color in label_info:
+        text_x, text_y = t.get_position()
+        # ラベルとマーカーの位置がほぼ同じなら線は不要
+        # データ座標での距離ではなく、matplotlib の座標系で判定するのは複雑なので
+        # データ座標での差分で十分（重ならないラベルは adjustText が離すはず）
+        if abs(text_x - marker_x) < 1e-9 and abs(text_y - marker_y) < 1e-9:
+            continue
+        ax.plot(
+            [marker_x, text_x],
+            [marker_y, text_y],
+            color=color,
+            lw=0.6,
+            alpha=0.7,
+            zorder=2,
+        )
 
     plt.tight_layout()
 
